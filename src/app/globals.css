@@ -1,0 +1,148 @@
+@import "tailwindcss";
+
+@theme {
+  /* === Base surfaces === */
+  --color-void: #07070c;
+  --color-surface: #10121a;
+  --color-elevated: #1a1d2b;
+  --color-raised: #232739;
+  --color-border: #2a2e42;
+  --color-border-strong: #3a3f59;
+
+  /* === Text === */
+  --color-text: #f5f6fb;
+  --color-text-muted: #8b8fa8;
+  --color-text-faint: #5a5e78;
+
+  /* === Accents === */
+  --color-ion: #4db8ff;
+  --color-ion-soft: #4db8ff33;
+  --color-nebula: #9b7bff;
+  --color-nebula-soft: #9b7bff33;
+  --color-quantum: #3de0a8;
+  --color-quantum-soft: #3de0a833;
+  --color-solar: #ffb547;
+  --color-solar-soft: #ffb54733;
+  --color-crimson: #ff5a6f;
+  --color-crimson-soft: #ff5a6f33;
+
+  /* === Fonts === */
+  --font-sans: var(--font-geist-sans), "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), "JetBrains Mono", ui-monospace, monospace;
+
+  /* === Radii === */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* === Shadows === */
+  --shadow-glow-ion: 0 0 24px 0 rgba(77, 184, 255, 0.25);
+  --shadow-glow-nebula: 0 0 24px 0 rgba(155, 123, 255, 0.25);
+  --shadow-glow-quantum: 0 0 24px 0 rgba(61, 224, 168, 0.25);
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-void);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Star-field backdrop — subtle, static */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(77, 184, 255, 0.08) 0, transparent 55%),
+    radial-gradient(circle at 82% 72%, rgba(155, 123, 255, 0.08) 0, transparent 55%),
+    radial-gradient(1px 1px at 20% 30%, rgba(255, 255, 255, 0.6) 50%, transparent 100%),
+    radial-gradient(1px 1px at 60% 20%, rgba(255, 255, 255, 0.4) 50%, transparent 100%),
+    radial-gradient(1px 1px at 80% 50%, rgba(255, 255, 255, 0.5) 50%, transparent 100%),
+    radial-gradient(1px 1px at 35% 70%, rgba(255, 255, 255, 0.3) 50%, transparent 100%),
+    radial-gradient(1px 1px at 75% 85%, rgba(255, 255, 255, 0.45) 50%, transparent 100%),
+    radial-gradient(1px 1px at 10% 85%, rgba(255, 255, 255, 0.3) 50%, transparent 100%),
+    radial-gradient(1px 1px at 48% 48%, rgba(255, 255, 255, 0.35) 50%, transparent 100%);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 10px;
+  border: 2px solid var(--color-void);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--color-ion);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Selection */
+::selection {
+  background: var(--color-ion-soft);
+  color: var(--color-text);
+}
+
+/* Utility: breathing pulse used by live agents */
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.animate-breathe {
+  animation: breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(77, 184, 255, 0.1) 50%,
+    transparent 100%
+  );
+  background-size: 400px 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+/* Content above the star-field */
+#app-root {
+  position: relative;
+  z-index: 1;
+}

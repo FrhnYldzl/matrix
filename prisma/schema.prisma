@@ -1,0 +1,499 @@
+// ══════════════════════════════════════════════════════════════════════════
+// Matrix OS — Prisma schema
+//
+// IMPORTANT: This is a SINGLE-TENANT private holdco operating system.
+// Ferhan + 2-4 partners use this to manage their digital asset portfolio.
+// NOT a SaaS. No signup flow, no multi-tenant row security, no billing.
+// Each Workspace = one digital asset (brand / SaaS / newsletter / etc).
+// ══════════════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Users & Membership ────────────────────────────────────────────────────
+// Flat list of 3-5 humans who have access. Email allowlist drives auth.
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String
+  role       UserRole @default(OPERATOR)
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime?
+
+  workspaces WorkspaceMember[]
+  approvals  Approval[]        @relation("ApprovalReviewer")
+
+  @@map("users")
+}
+
+enum UserRole {
+  FOUNDER    // Ferhan — full access to all workspaces
+  PARTNER    // Co-owner — access to specific workspaces
+  OPERATOR   // Human collaborator — narrow scope
+}
+
+model WorkspaceMember {
+  id          String   @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        String   @default("owner") // owner / contributor / viewer
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@map("workspace_members")
+}
+
+// ─── Workspace = Digital Asset ─────────────────────────────────────────────
+
+model Workspace {
+  id        String   @id @default(cuid())
+  slug      String   @unique // "ferhan-core", "trading-desk"
+  name      String
+  shortName String
+  industry  String
+  mission   String?
+  vision    String?
+  accent    String?  // ion / quantum / nebula / solar
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  strategicThemes StrategicTheme[]
+  valueAnchors    ValueAnchor[]
+  departments     Department[]
+  agents          Agent[]
+  skills          Skill[]
+  workflows       Workflow[]
+  goals           Goal[]
+  rocks           Rock[]
+  issues          Issue[]
+  scorecardRows   ScorecardRow[]
+  accountability  AccountabilityRole[]
+  budgets         Budget[]
+  costEntries     CostEntry[]
+  auditEvents     AuditEvent[]
+  approvals       Approval[]
+  suggestions     Suggestion[]
+  agentRuns       AgentRun[]
+  members         WorkspaceMember[]
+
+  @@map("workspaces")
+}
+
+model StrategicTheme {
+  id          String    @id @default(cuid())
+  workspaceId String
+  label       String
+  description String
+  weight      Int       // 0-100
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("strategic_themes")
+}
+
+model ValueAnchor {
+  id          String    @id @default(cuid())
+  workspaceId String
+  label       String
+  description String
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("value_anchors")
+}
+
+// ─── Organization Graph ────────────────────────────────────────────────────
+
+model Department {
+  id          String    @id @default(cuid())
+  workspaceId String
+  name        String
+  displayName String
+  summary     String?
+  accent      String?
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agents    Agent[]
+
+  @@map("departments")
+}
+
+model Agent {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  departmentId String?
+  name         String   // kebab-case identifier
+  displayName  String
+  role         String
+  summary      String?
+  status       AgentStatus @default(DRAFT)
+  accent       String?
+  origin       String   @default("manual") // seed / oracle / manual / catalog / import
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  skills     AgentSkill[]
+  runs       AgentRun[]
+
+  @@map("agents")
+}
+
+enum AgentStatus {
+  DRAFT
+  LIVE
+  PAUSED
+  ARCHIVED
+}
+
+model Skill {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String   // kebab-case
+  displayName String
+  summary     String?
+  inputs      Json?    // array of input schema
+  outputs     Json?
+  modelRef    String?  // pinned LLM model id
+  scopes      String[] // read / write / external-send
+  origin      String   @default("manual")
+  filePath    String?  // virtual path in the repo tree
+  yamlContent String?  // canonical SKILL.md/yaml content
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agents      AgentSkill[]
+  workflowSteps WorkflowStep[]
+
+  @@map("skills")
+}
+
+model AgentSkill {
+  agentId String
+  skillId String
+  agent   Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  skill   Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([agentId, skillId])
+  @@map("agent_skills")
+}
+
+// ─── Workflows ─────────────────────────────────────────────────────────────
+
+model Workflow {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  departmentId String?
+  name         String
+  displayName  String
+  cadence      String? // "cron:0 30 9 * * 1", "webhook", "manual"
+  description  String?
+  lastStatus   WorkflowStatus @default(DRAFT)
+  nextRunAt    DateTime?
+  origin       String   @default("manual")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  steps     WorkflowStep[]
+  runs      AgentRun[]
+
+  @@map("workflows")
+}
+
+enum WorkflowStatus {
+  DRAFT
+  RUNNING
+  SUCCESS
+  PENDING_APPROVAL
+  FAILED
+  PAUSED
+}
+
+model WorkflowStep {
+  id         String   @id @default(cuid())
+  workflowId String
+  orderIx    Int      // position in the workflow
+  kind       String   // trigger / skill / integration / approval / notify / condition
+  label      String
+  skillId    String?  // when kind === "skill"
+  modelRef   String?  // pinned model override
+  config     Json?    // kind-specific config
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  skill    Skill?   @relation(fields: [skillId], references: [id], onDelete: SetNull)
+
+  @@map("workflow_steps")
+}
+
+// ─── Goals (The Prophecy) ──────────────────────────────────────────────────
+
+model Goal {
+  id          String   @id @default(cuid())
+  workspaceId String
+  title       String
+  description String?
+  target      Float
+  current     Float    @default(0)
+  unit        String
+  trajectory  String   // ahead / on-track / at-risk / off-track
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  rocks     Rock[]
+
+  @@map("goals")
+}
+
+// ─── EOS / Captain's Log ───────────────────────────────────────────────────
+
+model Rock {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  quarter       String   // "2026 Q2"
+  title         String
+  description   String?
+  ownerName     String
+  ownerRole     String
+  ownerKind     String   // human / agent
+  status        String   // on-track / off-track / done / dropped
+  progressPct   Int      @default(0)
+  linkedGoalId  String?
+  milestones    Json?    // array of { label, done, dueIso }
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  goal      Goal?     @relation(fields: [linkedGoalId], references: [id], onDelete: SetNull)
+
+  @@map("rocks")
+}
+
+model Issue {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  title        String
+  raisedBy     String
+  raisedAt     DateTime @default(now())
+  category     String   // people / process / tech / customer / strategy
+  ids          String   // identify / discuss / solve / closed
+  priority     String   // high / medium / low
+  assigneeName String?
+  note         String?
+  closedAt     DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("issues")
+}
+
+model ScorecardRow {
+  id          String   @id @default(cuid())
+  workspaceId String
+  metric      String
+  ownerName   String
+  unit        String
+  target      Float
+  trend       String   // up / down / flat
+  weekly      Json     // array of weekly values, 13-week rolling
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("scorecard_rows")
+}
+
+model AccountabilityRole {
+  id                    String   @id @default(cuid())
+  workspaceId           String
+  role                  String   // "Visionary", "Integrator", "Sales Lead"
+  ownerName             String
+  ownerKind             String   // human / agent
+  topAccountabilities   String[] // 3-5 bullets
+  reportsToRoleId       String?
+  sits                  String   // executive / department / individual
+  createdAt             DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("accountability_roles")
+}
+
+// ─── Cost & Spend (The Tribute) ────────────────────────────────────────────
+
+model Budget {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  scopeKind    String   // workspace / connector / department / agent
+  scopeId      String?
+  monthlyLimitUsd Float
+  currentUsd   Float    @default(0)
+  alertAt      Float    @default(0.8) // fire alert at 80% usage
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("budgets")
+}
+
+model CostEntry {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  connectorId  String   // references seed catalog id
+  actorKind    String   // agent / skill / workflow
+  actorId      String?
+  actorName    String
+  kind         String   // llm-tokens / api-call / platform-share / per-unit / rev-share
+  amountUsd    Float
+  metadata     Json?    // tokens_in/out, model, latency_ms, etc.
+  timestamp    DateTime @default(now())
+  traceId      String?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, timestamp])
+  @@index([connectorId])
+  @@map("cost_entries")
+}
+
+// ─── Oracle Suggestions ────────────────────────────────────────────────────
+
+model Suggestion {
+  id             String   @id @default(cuid())
+  workspaceId    String
+  title          String
+  body           String?
+  kind           String   // gap / strategy / ops / risk
+  priority       String   // high / medium / low
+  source         String   // canonical rule id that produced this
+  proposedAction Json?    // structured proposal (e.g. create-skill payload)
+  status         SuggestionStatus @default(OPEN)
+  acceptedAt     DateTime?
+  dismissedAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@map("suggestions")
+}
+
+enum SuggestionStatus {
+  OPEN
+  ACCEPTED
+  DISMISSED
+}
+
+// ─── Control Room (Nebuchadnezzar) ─────────────────────────────────────────
+
+model AuditEvent {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  actorKind    String   // agent / skill / workflow / user
+  actorName    String
+  eventType    String   // skill.invoke / workflow.run / connector.call / approval.grant / kill-switch.armed
+  result       String   // success / fail / pending
+  durationMs   Int?
+  payload      Json?
+  errorMessage String?
+  traceId      String?
+  timestamp    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, timestamp])
+  @@index([traceId])
+  @@map("audit_events")
+}
+
+model Approval {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  actorKind     String   // agent / workflow
+  actorName     String
+  actionLabel   String
+  actionBody    String
+  costEstimateUsd Float?
+  externalCount Int      @default(1) // how many outbound touches
+  scope         String   // external-send / high-cost / destructive
+  status        ApprovalStatus @default(PENDING)
+  reviewerId    String?
+  decidedAt     DateTime?
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  reviewer  User?     @relation("ApprovalReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@map("approvals")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  DENIED
+  EXPIRED
+}
+
+// ─── Agent Execution Runtime ───────────────────────────────────────────────
+// Every LLM-driven invocation lives here. Drives cost attribution + audit.
+
+model AgentRun {
+  id          String   @id @default(cuid())
+  workspaceId String
+  agentId     String?
+  workflowId  String?
+  triggerKind String   // scheduled / webhook / manual / api
+  status      RunStatus @default(QUEUED)
+  startedAt   DateTime @default(now())
+  finishedAt  DateTime?
+  totalTokensIn  Int?
+  totalTokensOut Int?
+  totalCostUsd   Float?
+  errorMessage   String?
+  output         Json?
+  traceId        String @unique @default(cuid())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agent     Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  workflow  Workflow? @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, startedAt])
+  @@map("agent_runs")
+}
+
+enum RunStatus {
+  QUEUED
+  RUNNING
+  AWAITING_APPROVAL
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+// ─── Killswitch state (global) ─────────────────────────────────────────────
+
+model SystemState {
+  id                String   @id @default("singleton") // only one row
+  killSwitchArmed   Boolean  @default(false)
+  killSwitchReason  String?
+  killSwitchAt      DateTime?
+  deploymentLocked  Boolean  @default(false)
+  updatedAt         DateTime @updatedAt
+  @@map("system_state")
+}
