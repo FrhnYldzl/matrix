@@ -14,8 +14,26 @@
 | Cache & queue | Redis 7 (BullMQ) | **Railway** |
 | Background worker | Node.js (BullMQ consumer) | **Railway** |
 | Cron jobs | Railway cron | **Railway** |
-| Agent runtime | Claude Agent SDK (Anthropic) | API çağrısı — serverless'tan |
+| **Primary AI** | **Claude Agent SDK** (Anthropic) | API çağrısı — serverless'tan |
+| **Audit AI** | **Gemini** (Google AI) | API çağrısı — second-opinion denetimi |
 | Auth | Email allowlist + signed cookie | Serverless middleware |
+
+### Dual-AI pattern (Matrix güvenlik omurgası)
+
+Matrix hiçbir agent çıktısını körü körüne dış dünyaya bırakmaz. İki bağımsız AI kullanarak cross-check yapar:
+
+```
+User/Cron → Matrix Orchestrator → Claude (primary)
+                                      ↓
+                          Gemini (audit) — aynı input'a bakar
+                                      ↓
+                 Karar: hallucination / fact mismatch / scope violation var mı?
+                                      ↓
+                 "Clear" → external-send approval gate'e gider
+                 "Concern" → Issues List'e düşer, insan denetler
+```
+
+Her external-send, her SKILL.md forge, her kritik outbound karar bu dual-AI patterninden geçer. **Aynı yanlışı iki farklı model aynı anda yapma ihtimali çok düşük** — bu sistemin self-correcting doğasının temeli.
 
 **Maliyet tahmini (solo + 2-4 partner kullanımı):**
 - Vercel Hobby: **$0/ay**
@@ -231,10 +249,19 @@ Sonra `invoke()` fonksiyonunda `// Claude Agent SDK call goes here` bölümünü
 
 ## 6. Sıradaki sprint'ler
 
-**B+1: Agent SDK entegrasyonu**
-- Claude Agent SDK kurulumu, MCP servers (Notion/Gmail/Slack)
+**B+1: Agent SDK entegrasyonu (Claude primary)**
+- `@anthropic-ai/sdk` kurulumu, Claude Agent SDK + MCP servers (Notion/Gmail/Slack)
 - Orchestrator'ın gerçek LLM çağrıları
 - Golden test suite v1
+
+**B+1.5: Gemini audit katmanı**
+- `@google/generative-ai` kurulumu
+- `src/lib/agent/audit-gemini.ts` — Claude çıktısını denetler:
+  * hallucination detection
+  * scope-violation check (external-send'in skill frontmatter'ıyla uyumlu mu?)
+  * fact cross-check (her "şu şöyleydi" claim'i kaynakla uyumlu mu?)
+  * tone/brand alignment (workspace'in voice'u ile uyumlu mu?)
+- "Concern" durumları otomatik Captain's Log Issue'u olur, IDS workflow'una girer
 
 **B+2: Scheduled jobs**
 - Cron ile Oracle günlük tarama
