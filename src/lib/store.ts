@@ -12,6 +12,15 @@ import type {
   Workflow,
   Workspace,
 } from "./types";
+import {
+  CELEBRATION_MAP,
+  detectRankUp,
+  makeEvent,
+  totalXp,
+  type DopamineEvent,
+  type DopamineEventKind,
+} from "./dopamine";
+import { toast } from "./toast";
 
 export type CreationOrigin = "oracle" | "catalog" | "import" | "manual";
 
@@ -34,6 +43,8 @@ interface WorkspaceState {
   createdDepartments: CreatedItem<Department>[];
   createdGoals: CreatedItem<Goal>[];
   acceptedSuggestionSources: string[]; // Oracle "learning" signal
+  // Dopamine — event-driven XP stream
+  dopamineEvents: DopamineEvent[];
   setWorkspace: (id: string) => void;
   updateWorkspace: (id: string, patch: Partial<Workspace>) => void;
   toggleKillSwitch: () => void;
@@ -46,10 +57,25 @@ interface WorkspaceState {
   createWorkspace: (item: CreatedItem<Workspace>, source?: string) => void;
   /**
    * Seed/demo workspaces'i (mock-data'dan gelen) siler — sadece Ferhan'ın
-   * manuel yarattıklarını bırakır. Portfolio tarafındaki "sadece gerçek
-   * asset'leri görmek istiyorum" ihtiyacı için.
+   * manuel yarattıklarını bırakır.
    */
   clearDemoData: () => void;
+  /**
+   * Dopamine kaydı — herhangi bir UI aksiyonu bunu çağırır. XP eklenir,
+   * rank-up tetiklenirse macro-celebration basılır, aksi halde micro-toast.
+   *
+   * opts.silent=true → event kaydolur ama toast gösterilmez (sessiz batch
+   * işlemlerde kullan — örn. onboarding'te 5 agent yaratırken).
+   */
+  recordAction: (
+    kind: DopamineEventKind,
+    opts?: {
+      workspaceId?: string;
+      silent?: boolean;
+      forceBonus?: boolean;
+      meta?: Record<string, string | number | boolean>;
+    }
+  ) => void;
   addStrategicTheme: (workspaceId: string, theme: StrategicTheme) => void;
   updateStrategicTheme: (
     workspaceId: string,
@@ -66,7 +92,7 @@ interface WorkspaceState {
   removeValueAnchor: (workspaceId: string, anchorId: string) => void;
 }
 
-export const useWorkspaceStore = create<WorkspaceState>((set) => ({
+export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   currentWorkspaceId: seedWorkspaces[0].id,
   workspaces: seedWorkspaces,
   killSwitchArmed: false,
@@ -77,6 +103,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   createdDepartments: [],
   createdGoals: [],
   acceptedSuggestionSources: [],
+  dopamineEvents: [],
   setWorkspace: (id) => set({ currentWorkspaceId: id }),
   toggleKillSwitch: () =>
     set((s) => ({ killSwitchArmed: !s.killSwitchArmed })),
@@ -86,66 +113,147 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
       next.add(id);
       return { dismissedApprovals: next };
     }),
-  createSkill: (item, source) =>
+  recordAction: (kind, opts) => {
+    const state = get();
+    const before = totalXp(state.dopamineEvents);
+    const event = makeEvent(kind, {
+      workspaceId: opts?.workspaceId ?? state.currentWorkspaceId,
+      forceBonus: opts?.forceBonus,
+      meta: opts?.meta,
+    });
+    const after = before + event.xp + (event.bonus ?? 0);
+    set({ dopamineEvents: [...state.dopamineEvents, event] });
+
+    // Silent mode — sadece event kaydedilir, toast yok
+    if (opts?.silent) return;
+
+    // Rank-up macro-celebration — her şeyin üstünde
+    const rankUp = detectRankUp(before, after);
+    if (rankUp) {
+      toast({
+        tone: rankUp.tone === "crimson" ? "crimson" : rankUp.tone,
+        title: `🎖️ Rank up · ${rankUp.label}`,
+        description: `"${rankUp.matrixQuote}" — ${rankUp.speaker}`,
+        ttlMs: 8000,
+      });
+      return; // rank-up celebrate oldu, micro'yu atla
+    }
+
+    // Event-specific celebration profili
+    const profile = CELEBRATION_MAP[kind];
+    if (!profile) return; // mapped değilse sessiz XP
+    const total = event.xp + (event.bonus ?? 0);
+    toast({
+      tone: profile.tone,
+      title: profile.titleFor(event.xp, event.bonus ?? 0),
+      description: profile.quote
+        ? `"${profile.quote.line}" — ${profile.quote.speaker}`
+        : profile.description,
+      ttlMs: profile.intensity === "macro" ? 6000 : profile.intensity === "mid" ? 4500 : 2500,
+    });
+    // Variable reward bonus hit — extra micro-toast (Skinner box)
+    if (event.bonus && event.bonus > 0 && profile.intensity !== "macro") {
+      // bonus zaten title'da gösterildi — ek log sadece analiz
+      void total;
+    }
+  },
+  createSkill: (item, source) => {
     set((s) => ({
       createdSkills: [...s.createdSkills, item],
       acceptedSuggestionSources: source
         ? [...s.acceptedSuggestionSources, source]
         : s.acceptedSuggestionSources,
-    })),
-  createAgent: (item, source) =>
+    }));
+    get().recordAction("skill.created", {
+      workspaceId: item.entity.workspaceId,
+      silent: source?.startsWith("oracle-onboarding:") ?? false,
+      meta: { skillName: item.entity.name },
+    });
+  },
+  createAgent: (item, source) => {
     set((s) => ({
       createdAgents: [...s.createdAgents, item],
       acceptedSuggestionSources: source
         ? [...s.acceptedSuggestionSources, source]
         : s.acceptedSuggestionSources,
-    })),
-  createWorkflow: (item, source) =>
+    }));
+    get().recordAction("agent.created", {
+      workspaceId: item.entity.workspaceId,
+      silent: source?.startsWith("oracle-onboarding:") ?? false,
+      meta: { agentName: item.entity.name },
+    });
+  },
+  createWorkflow: (item, source) => {
     set((s) => ({
       createdWorkflows: [...s.createdWorkflows, item],
       acceptedSuggestionSources: source
         ? [...s.acceptedSuggestionSources, source]
         : s.acceptedSuggestionSources,
-    })),
-  createDepartment: (item, source) =>
+    }));
+    get().recordAction("workflow.created", {
+      workspaceId: item.entity.workspaceId,
+      silent: source?.startsWith("oracle-onboarding:") ?? false,
+      meta: { workflowName: item.entity.name },
+    });
+  },
+  createDepartment: (item, source) => {
     set((s) => ({
       createdDepartments: [...s.createdDepartments, item],
       acceptedSuggestionSources: source
         ? [...s.acceptedSuggestionSources, source]
         : s.acceptedSuggestionSources,
-    })),
-  createGoal: (item, source) =>
+    }));
+    get().recordAction("department.created", {
+      workspaceId: item.entity.workspaceId,
+      silent: source?.startsWith("oracle-onboarding:") ?? false,
+      meta: { deptName: item.entity.name },
+    });
+  },
+  createGoal: (item, source) => {
     set((s) => ({
       createdGoals: [...s.createdGoals, item],
       acceptedSuggestionSources: source
         ? [...s.acceptedSuggestionSources, source]
         : s.acceptedSuggestionSources,
-    })),
-  createWorkspace: (item, source) =>
+    }));
+    get().recordAction("goal.created", {
+      workspaceId: item.entity.workspaceId,
+      silent: source?.startsWith("oracle-onboarding:") ?? false,
+      meta: { goalTitle: item.entity.title },
+    });
+  },
+  createWorkspace: (item, source) => {
     set((s) => ({
       workspaces: [...s.workspaces, item.entity],
       acceptedSuggestionSources: source
         ? [...s.acceptedSuggestionSources, source]
         : s.acceptedSuggestionSources,
-    })),
+    }));
+    // Workspace create → Big XP. Own toast kalır (gamification mesajı),
+    // dopamine silent olarak akar ki double-toast olmasın.
+    get().recordAction("workspace.created", {
+      workspaceId: item.entity.id,
+      silent: true,
+      meta: { name: item.entity.name },
+    });
+  },
   clearDemoData: () =>
     set((s) => {
-      // Sadece manual/oracle origin'li workspaces kalır — seed olanlar silinir.
-      // Seed workspace'ler mock-data'dan geliyor ve store'a sadece initial
-      // state'te yükleniyor; origin bilgisi yok — bu yüzden seedWorkspaces
-      // listesiyle karşılaştırıyoruz.
       const seedIds = new Set(seedWorkspaces.map((w) => w.id));
       const remainingWorkspaces = s.workspaces.filter((w) => !seedIds.has(w.id));
       const remainingIds = new Set(remainingWorkspaces.map((w) => w.id));
 
-      // Currentworkspace seed'di ise — ilk gerçek ws'e geç, o da yoksa boş bırak
       const nextCurrent = remainingIds.has(s.currentWorkspaceId)
         ? s.currentWorkspaceId
         : remainingWorkspaces[0]?.id ?? "";
 
-      // İlişkili oluşturulan entity'leri de temizle (seed ws'e bağlı olanlar)
       const keep = <T extends { workspaceId: string }>(items: CreatedItem<T>[]) =>
         items.filter((c) => remainingIds.has(c.entity.workspaceId));
+
+      // Dopamine events — sadece gerçek ws'ler için olanları tut
+      const keptEvents = s.dopamineEvents.filter(
+        (e) => !e.workspaceId || remainingIds.has(e.workspaceId)
+      );
 
       return {
         workspaces: remainingWorkspaces,
@@ -155,6 +263,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
         createdWorkflows: keep(s.createdWorkflows),
         createdDepartments: keep(s.createdDepartments),
         createdGoals: keep(s.createdGoals),
+        dopamineEvents: keptEvents,
       };
     }),
   updateWorkspace: (id, patch) =>

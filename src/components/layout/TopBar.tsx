@@ -17,6 +17,7 @@ import { connectors as allConnectorsTop } from "@/lib/connectors";
 import { getBudgetsWithSpend as getBudgetsTop } from "@/lib/costs";
 import { toast } from "@/lib/toast";
 import { OracleDrawer } from "../oracle/OracleDrawer";
+import { DopamineHud } from "../gamification/DopamineHud";
 
 export function TopBar() {
   const { currentWorkspaceId, workspaces } = useWorkspaceStore();
@@ -77,6 +78,7 @@ export function TopBar() {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
+        <DopamineHud />
         <Button
           variant="ghost"
           size="sm"

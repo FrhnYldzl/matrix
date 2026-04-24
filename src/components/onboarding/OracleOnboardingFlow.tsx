@@ -77,7 +77,8 @@ export function OracleOnboardingFlow({
   const [proposal, setProposal] = useState<OracleProposal | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  const { createSkill, createAgent, createWorkflow, createDepartment } = useWorkspaceStore();
+  const { createSkill, createAgent, createWorkflow, createDepartment, recordAction } =
+    useWorkspaceStore();
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -227,7 +228,21 @@ export function OracleOnboardingFlow({
 
     setPhase("accepted");
 
-    // Final celebration toast
+    // Macro-celebration — onboarding tamamlandı. workspace.onboarded event'i
+    // bonus guaranteed (forceBonus) ki ilk dopamine hit büyük olsun.
+    recordAction("workspace.onboarded", {
+      workspaceId: workspace.id,
+      forceBonus: true,
+      meta: {
+        departments: proposal.departments.length,
+        agents: proposal.agents.length,
+        skills: proposal.skills.length,
+        workflows: proposal.workflows.length,
+      },
+    });
+
+    // Final celebration toast (dopamine toast ile overlap olmaması için daha
+    // spesifik detay veriyor — summary tarafı)
     toast({
       tone: "quantum",
       title: `${workspace.name} kurulumu tamamlandı!`,
