@@ -475,6 +475,173 @@ export const CODEX: CodexEntry[] = [
   },
 ];
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MATRIX FLOW — uçtan uca bir asset'i nasıl yürütürsün?
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface FlowStep {
+  phase: "zero" | "setup" | "operate" | "analyze" | "repeat";
+  order: number;
+  title: string;
+  subtitle: string;
+  description: string;
+  modules: string[]; // CodexEntry.slug referansları
+  durationLabel: string; // "~5 dk", "~15 dk", "haftalık", vs.
+}
+
+export const MATRIX_FLOW: FlowStep[] = [
+  // Phase 0 — önce kafayı kur
+  {
+    phase: "zero",
+    order: 0,
+    title: "Matrix'i tanı",
+    subtitle: "İlk gün · 15 dk",
+    description:
+      "The Codex'te her modülün ne/niçin/nasıl'ını 10-15 dakika oku. Matrix bir SaaS değil — senin holdco OS'un. Tüm asset'lerini (Juris · SaaS, Newsletter brand, POD brand, vs.) buradan yönetirsin.",
+    modules: ["construct"],
+    durationLabel: "~15 dk",
+  },
+
+  // Phase 1 — yeni asset kur
+  {
+    phase: "setup",
+    order: 1,
+    title: "Yeni asset ekle",
+    subtitle: "Workspace = dijital varlık",
+    description:
+      "TopBar'daki workspace switcher → 'Yeni şirket / proje ekle' → 4 template'ten birini seç (SaaS / Newsletter / Affiliate / E-commerce) ya da Custom. Template seed DNA (mission/vision/themes) ile gelir.",
+    modules: ["construct"],
+    durationLabel: "~2 dk",
+  },
+  {
+    phase: "setup",
+    order: 2,
+    title: "DNA'yı yaz",
+    subtitle: "The Prime Program",
+    description:
+      "Mission + vision + 3-5 stratejik tema + değer çıpaları. Oracle her gece bu DNA'ya göre organizasyonun hizalı olup olmadığını denetler.",
+    modules: ["prime-program"],
+    durationLabel: "~10 dk",
+  },
+  {
+    phase: "setup",
+    order: 3,
+    title: "Blueprint kur",
+    subtitle: "The Keymaker",
+    description:
+      "Ideas tab'ından uygun iş modelini seç → Blueprints tab'ında ilgili hazır paketi kur (örn. Sales & Marketing). 12 dakikada departman + ajan + skill + workflow canlıya gelir.",
+    modules: ["keymaker"],
+    durationLabel: "~12 dk",
+  },
+  {
+    phase: "setup",
+    order: 4,
+    title: "Dış dünyaya bağlan",
+    subtitle: "TrainStation · The Source",
+    description:
+      "İlgili connector'ları aktifleştir (Stripe, HubSpot, Notion, Gmail, vs. — API key env'e). The Source'tan ajanlarına model pinle (Claude Sonnet default, Opus ağır iş için).",
+    modules: ["trainstation", "source"],
+    durationLabel: "~15 dk",
+  },
+  {
+    phase: "setup",
+    order: 5,
+    title: "Hedefleri belirle",
+    subtitle: "Captain's Log · Goals tab",
+    description:
+      "Yıllık OKR'leri yaz + çeyreklik Rocks (3-7 büyük taahhüt) tanımla. Her Rock bir sahibi (insan veya agent) taşır. Oracle bu hedefleri baz alarak boşluk önerir.",
+    modules: ["captains-log"],
+    durationLabel: "~20 dk",
+  },
+
+  // Phase 2 — günlük çalıştırma
+  {
+    phase: "operate",
+    order: 6,
+    title: "Haftalık L10 ritüeli",
+    subtitle: "Her Pazartesi 09:30",
+    description:
+      "Captain's Log → Level 10 Meeting sekmesindeki canonical agenda. 90 dakikalık disiplin: Segue → Scorecard → Rock Review → Customer/Employee Headlines → To-Do List → IDS → Conclude. Cron ile otomatik kurabilirsin.",
+    modules: ["captains-log", "loading-program"],
+    durationLabel: "haftalık · 90 dk",
+  },
+  {
+    phase: "operate",
+    order: 7,
+    title: "Oracle'ı dinle",
+    subtitle: "Her sabah 5-10 dk",
+    description:
+      "TopBar'daki 'Oracle 17' butonu → full-screen drawer. Yüksek öncelikli önerileri gez, kabul/yoksay. Kabul ettiklerin Oracle Forge ile yeni skill/agent olur.",
+    modules: ["oracle"],
+    durationLabel: "günlük · 5 dk",
+  },
+  {
+    phase: "operate",
+    order: 8,
+    title: "Task'ları yönet",
+    subtitle: "The Operator — dijital + fiziksel",
+    description:
+      "Kanban board: todo/doing/review/done/blocked. Dijital (agent-owned) + fiziksel (insan-owned) görevler aynı ekranda. Linear/Notion/Asana'dan pull sync, Matrix içinde üretilen task'ları push sync.",
+    modules: ["operator"],
+    durationLabel: "günlük",
+  },
+  {
+    phase: "operate",
+    order: 9,
+    title: "External-send onayları",
+    subtitle: "Nebuchadnezzar · Seraph gate",
+    description:
+      "Ajan dış dünyaya mesaj atmak istediğinde (email, tweet, Stripe refund) Control Room'daki approval kuyruğuna düşer. Sen onaylamazsan hiçbir external touch olmaz.",
+    modules: ["nebuchadnezzar"],
+    durationLabel: "olay bazlı",
+  },
+
+  // Phase 3 — analiz ve öğrenme
+  {
+    phase: "analyze",
+    order: 10,
+    title: "Maliyet & ROI",
+    subtitle: "The Tribute — haftalık",
+    description:
+      "Her agent call'u, her connector çağrısı $ olarak işlenir. 30-gün rollup: gelir vs harcama vs ROI. Asset bazında + portföy bazında görürsün. Pahalı skill'leri cost-optimize edersin (Opus → Haiku).",
+    modules: ["tribute"],
+    durationLabel: "haftalık · 5 dk",
+  },
+  {
+    phase: "analyze",
+    order: 11,
+    title: "Kaldıraç ölçümü",
+    subtitle: "The Truth — hafta sonu",
+    description:
+      "Delegasyon saati / yönetim saati oranı. 5x altındaysa Matrix yeterince yük almıyor. Performance tablo + departman sağlık + weekly retro (ne çalıştı / çalışmadı).",
+    modules: ["truth"],
+    durationLabel: "haftalık · 10 dk",
+  },
+
+  // Phase 4 — cycle
+  {
+    phase: "repeat",
+    order: 12,
+    title: "Yeni asset'e geç",
+    subtitle: "Portfolio büyüme ritmi",
+    description:
+      "Her 2-3 ayda bir yeni asset ekle (2. workspace = 2. dijital varlık). The Construct'taki Portfolio Rollup tüm asset'lerin tek ekranda ROI tablosunu verir. Zamanla 5+ asset paralel yönetilebilir olur.",
+    modules: ["construct"],
+    durationLabel: "çeyreklik",
+  },
+];
+
+export const flowPhaseMeta: Record<
+  FlowStep["phase"],
+  { label: string; tone: "nebula" | "solar" | "ion" | "quantum" | "crimson" }
+> = {
+  zero: { label: "Önce · Anla", tone: "nebula" },
+  setup: { label: "1. Kurulum · Yeni asset", tone: "solar" },
+  operate: { label: "2. Operasyon · Günlük akış", tone: "ion" },
+  analyze: { label: "3. Analiz · Öğrenme", tone: "quantum" },
+  repeat: { label: "4. Döngü · Portföy büyüme", tone: "crimson" },
+};
+
 export const groupMeta: Record<
   CodexEntry["group"],
   { label: string; description: string }

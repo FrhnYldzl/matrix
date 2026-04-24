@@ -11,21 +11,34 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import { CODEX, groupMeta, type CodexEntry } from "@/lib/codex";
+import {
+  CODEX,
+  groupMeta,
+  MATRIX_FLOW,
+  flowPhaseMeta,
+  type CodexEntry,
+  type FlowStep,
+} from "@/lib/codex";
 import { MatrixHexGrid } from "../brand/MatrixHexGrid";
 import { MatrixQuote } from "../brand/MatrixQuote";
 import {
   ArrowRight,
   BookOpenCheck,
   ChevronRight,
+  Clock,
+  Compass,
   ExternalLink,
   HelpCircle,
+  Layers,
   Link as LinkIcon,
   Search,
   Sparkles,
 } from "lucide-react";
 
+type CodexView = "flow" | "modules";
+
 export function CodexPage() {
+  const [view, setView] = useState<CodexView>("flow");
   const [query, setQuery] = useState("");
   const [selectedSlug, setSelectedSlug] = useState<string>("construct");
 
@@ -76,7 +89,39 @@ export function CodexPage() {
         </div>
       </section>
 
-      {/* Search + content */}
+      {/* View switcher */}
+      <div className="sticky top-14 z-10 flex items-center gap-2 border-b border-border/60 bg-void/70 px-8 py-3 backdrop-blur-md">
+        <button
+          onClick={() => setView("flow")}
+          className={cn(
+            "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-all",
+            view === "flow"
+              ? "border-nebula/40 bg-nebula-soft text-nebula shadow-inner"
+              : "border-border/60 bg-transparent text-text-muted hover:border-border-strong hover:text-text"
+          )}
+        >
+          <Compass size={13} />
+          Matrix Flow · uçtan uca akış
+        </button>
+        <button
+          onClick={() => setView("modules")}
+          className={cn(
+            "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-all",
+            view === "modules"
+              ? "border-ion/40 bg-ion-soft text-ion shadow-inner"
+              : "border-border/60 bg-transparent text-text-muted hover:border-border-strong hover:text-text"
+          )}
+        >
+          <Layers size={13} />
+          Modüller · detay rehber ({CODEX.length})
+        </button>
+      </div>
+
+      {/* Flow view */}
+      {view === "flow" && <FlowView />}
+
+      {/* Modules view */}
+      {view === "modules" && (
       <div className="grid grid-cols-1 gap-6 px-8 py-6 lg:grid-cols-[320px_1fr]">
         {/* ──── LEFT · Navigator ──── */}
         <aside className="space-y-4">
@@ -162,7 +207,164 @@ export function CodexPage() {
           <DetailView entry={selected} />
         </section>
       </div>
+      )}
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FLOW VIEW — uçtan uca Matrix kullanım akışı
+// ═══════════════════════════════════════════════════════════════════════════
+
+function FlowView() {
+  const phases: FlowStep["phase"][] = ["zero", "setup", "operate", "analyze", "repeat"];
+
+  return (
+    <div className="space-y-8 px-8 py-8">
+      <div className="mx-auto max-w-4xl">
+        <p className="text-sm leading-relaxed text-text-muted">
+          Matrix'i uçtan uca nasıl kullanırsın? Aşağıdaki 13 adım yeni bir
+          workspace (asset) eklemekten haftalık disipline + portföy büyütmeye
+          kadar tüm yolculuk. Her adım ilgili modülü açar — takılı kaldığın
+          yerde o modülün tam detayı için <b className="text-text">Modüller</b> sekmesine geç.
+        </p>
+      </div>
+
+      <div className="mx-auto max-w-4xl space-y-10">
+        {phases.map((phase) => {
+          const phaseSteps = MATRIX_FLOW.filter((s) => s.phase === phase);
+          if (phaseSteps.length === 0) return null;
+          const meta = flowPhaseMeta[phase];
+          return (
+            <section key={phase} className="relative">
+              <PhaseHeader label={meta.label} tone={meta.tone} />
+              <ol className="mt-4 space-y-3">
+                {phaseSteps.map((step, idx) => (
+                  <FlowStepCard
+                    key={step.order}
+                    step={step}
+                    tone={meta.tone}
+                    isLast={idx === phaseSteps.length - 1}
+                  />
+                ))}
+              </ol>
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PhaseHeader({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "nebula" | "solar" | "ion" | "quantum" | "crimson";
+}) {
+  const cls = accentText(tone);
+  const borderCls = accentBorder(tone);
+  return (
+    <div className={cn("flex items-center gap-3 border-b pb-2", borderCls)}>
+      <span className={cn("font-mono text-[11px] uppercase tracking-[0.22em] font-semibold", cls)}>
+        {label}
+      </span>
+      <span className="h-px flex-1 bg-border/40" />
+    </div>
+  );
+}
+
+function FlowStepCard({
+  step,
+  tone,
+  isLast,
+}: {
+  step: FlowStep;
+  tone: "nebula" | "solar" | "ion" | "quantum" | "crimson";
+  isLast: boolean;
+}) {
+  const primaryModule = CODEX.find((e) => e.slug === step.modules[0]);
+
+  return (
+    <li className="flex gap-4">
+      {/* Rail */}
+      <div className="flex shrink-0 flex-col items-center">
+        <div
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-full border font-mono text-[11px] font-semibold",
+            accentTone(tone)
+          )}
+        >
+          {step.order}
+        </div>
+        {!isLast && <div className="mt-1 h-full w-px bg-border/40" />}
+      </div>
+
+      {/* Card */}
+      <article
+        className={cn(
+          "mb-3 flex-1 overflow-hidden rounded-lg border bg-surface/70 backdrop-blur-md transition-colors hover:border-border-strong",
+          "border-border/60"
+        )}
+      >
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-text">
+                {step.title}
+              </h3>
+              <div className={cn("mt-0.5 font-mono text-[10px] uppercase tracking-wider", accentText(tone))}>
+                {step.subtitle}
+              </div>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-elevated/40 px-2 py-0.5 font-mono text-[10px] text-text-muted">
+              <Clock size={9} />
+              {step.durationLabel}
+            </span>
+          </div>
+          <p className="mt-2 text-[13px] leading-relaxed text-text-muted">
+            {step.description}
+          </p>
+
+          {/* Related modules */}
+          {step.modules.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/40 pt-3">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-text-faint">
+                modüller
+              </span>
+              {step.modules.map((slug) => {
+                const mod = CODEX.find((e) => e.slug === slug);
+                if (!mod) return null;
+                return (
+                  <Link
+                    key={slug}
+                    href={mod.href ?? "#"}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[10px] transition-colors hover:bg-elevated/40",
+                      accentBorder(mod.accent),
+                      accentText(mod.accent)
+                    )}
+                  >
+                    <mod.icon size={9} />
+                    {mod.matrixName}
+                  </Link>
+                );
+              })}
+              {primaryModule?.href && (
+                <Link
+                  href={primaryModule.href}
+                  className="ml-auto inline-flex items-center gap-1 font-mono text-[10px] text-text-muted hover:text-text"
+                >
+                  Hemen git
+                  <ArrowRight size={10} />
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+      </article>
+    </li>
   );
 }
 

@@ -10,9 +10,15 @@
  *
  * Her asset türü seed DNA (mission/vision template) ile gelir.
  * İlerde: Keymaker blueprint otomatik tetiklenir.
+ *
+ * IMPORTANT: TopBar'ın `backdrop-blur-xl` filter'ı `position: fixed` için
+ * yeni bir containing block yaratıyordu — bu yüzden dialog tam ekran yerine
+ * TopBar hizasında görünüyordu. Çözüm: createPortal ile `document.body`'ye
+ * direkt render.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
 import { useWorkspaceStore } from "@/lib/store";
 import { Button } from "../ui/Button";
@@ -140,6 +146,22 @@ export function CreateWorkspaceDialog({
   const { createWorkspace, setWorkspace } = useWorkspaceStore();
   const [step, setStep] = useState<1 | 2>(1);
   const [template, setTemplate] = useState<AssetTemplate | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Portal mount guard — SSR'da document yok
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // ESC to close
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
   // Form state
   const [name, setName] = useState("");
@@ -230,10 +252,10 @@ export function CreateWorkspaceDialog({
     closeAndReset();
   };
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  const dialog = (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <button
         onClick={closeAndReset}
         aria-label="Kapat"
@@ -411,6 +433,8 @@ export function CreateWorkspaceDialog({
       </div>
     </div>
   );
+
+  return createPortal(dialog, document.body);
 }
 
 function StepPill({
