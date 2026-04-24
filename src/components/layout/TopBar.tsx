@@ -108,7 +108,8 @@ export function TopBar() {
             toast({
               tone: "ion",
               title: `${ws.name}`,
-              description: `Ferhan · patron · ${workspaces.length} workspace aktif. Profil menüsü bir sonraki sprint'te.`,
+              description: `Ferhan · patron · ${workspaces.length} workspace aktif.`,
+              action: { label: "Çıkış yap", href: "/api/auth/logout" },
             })
           }
           className="ml-2 h-8 w-8 rounded-full bg-gradient-to-br from-ion/80 to-nebula/60 font-mono text-xs font-semibold flex items-center justify-center text-void transition-transform hover:scale-105"
