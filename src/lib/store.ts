@@ -43,6 +43,7 @@ interface WorkspaceState {
   createWorkflow: (item: CreatedItem<Workflow>, source?: string) => void;
   createDepartment: (item: CreatedItem<Department>, source?: string) => void;
   createGoal: (item: CreatedItem<Goal>, source?: string) => void;
+  createWorkspace: (item: CreatedItem<Workspace>, source?: string) => void;
   addStrategicTheme: (workspaceId: string, theme: StrategicTheme) => void;
   updateStrategicTheme: (
     workspaceId: string,
@@ -110,6 +111,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   createGoal: (item, source) =>
     set((s) => ({
       createdGoals: [...s.createdGoals, item],
+      acceptedSuggestionSources: source
+        ? [...s.acceptedSuggestionSources, source]
+        : s.acceptedSuggestionSources,
+    })),
+  createWorkspace: (item, source) =>
+    set((s) => ({
+      workspaces: [...s.workspaces, item.entity],
       acceptedSuggestionSources: source
         ? [...s.acceptedSuggestionSources, source]
         : s.acceptedSuggestionSources,

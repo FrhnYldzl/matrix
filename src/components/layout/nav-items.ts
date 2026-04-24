@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Compass,
   Database,
+  HelpCircle,
   LayoutGrid,
   Library as LibraryIcon,
   Network,
@@ -145,5 +146,14 @@ export const navItems: NavItem[] = [
     tagline: "kaldıraç & retro",
     icon: BarChart3,
     group: "insight",
+  },
+  {
+    href: "/codex",
+    label: "The Codex",
+    subLabel: "User Guide · Manual",
+    tagline: "her modülün ne · niçin · nasıl",
+    icon: HelpCircle,
+    group: "insight",
+    accent: "nebula",
   },
 ];

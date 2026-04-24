@@ -2,9 +2,9 @@
 
 import { cn } from "@/lib/cn";
 import { useWorkspaceStore } from "@/lib/store";
-import { workspaces } from "@/lib/mock-data";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 
 const accentRing: Record<string, string> = {
   ion: "from-ion/80 to-ion/30",
@@ -14,9 +14,10 @@ const accentRing: Record<string, string> = {
 };
 
 export function WorkspaceSwitcher() {
-  const { currentWorkspaceId, setWorkspace } = useWorkspaceStore();
+  const { currentWorkspaceId, setWorkspace, workspaces } = useWorkspaceStore();
   const current = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0];
   const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -94,13 +95,24 @@ export function WorkspaceSwitcher() {
             })}
           </ul>
           <div className="border-t border-border/60 p-2">
-            <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-text-muted transition-colors hover:bg-elevated/60 hover:text-text">
+            <button
+              onClick={() => {
+                setOpen(false);
+                setCreateOpen(true);
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-text-muted transition-colors hover:bg-elevated/60 hover:text-text"
+            >
               <Plus size={14} />
               Yeni şirket / proje ekle
             </button>
           </div>
         </div>
       )}
+
+      <CreateWorkspaceDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+      />
     </div>
   );
 }

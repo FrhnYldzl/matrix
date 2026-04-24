@@ -154,4 +154,9 @@ export const MODULE_QUOTES: Record<
     speaker: "Morpheus",
     tone: "ion",
   },
+  "/codex": {
+    line: "I can only show you the door. You're the one that has to walk through it.",
+    speaker: "Morpheus",
+    tone: "nebula",
+  },
 };
