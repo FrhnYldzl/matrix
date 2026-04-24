@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bell, Command, Search, Sparkles } from "lucide-react";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { Button } from "../ui/Button";
@@ -16,12 +16,23 @@ import { scanWorkspace } from "@/lib/oracle";
 import { connectors as allConnectorsTop } from "@/lib/connectors";
 import { getBudgetsWithSpend as getBudgetsTop } from "@/lib/costs";
 import { toast } from "@/lib/toast";
-import Link from "next/link";
+import { OracleDrawer } from "../oracle/OracleDrawer";
 
 export function TopBar() {
   const { currentWorkspaceId, workspaces } = useWorkspaceStore();
   const ws = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0];
   const [searchFocus, setSearchFocus] = useState(false);
+  const [oracleOpen, setOracleOpen] = useState(false);
+
+  // ESC to close Oracle drawer
+  useEffect(() => {
+    if (!oracleOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOracleOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [oracleOpen]);
   const oracleCount = useMemo(
     () =>
       scanWorkspace({
@@ -64,17 +75,20 @@ export function TopBar() {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <Link href="/oracle">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <Sparkles size={14} className="text-nebula" />
-            <span>Oracle</span>
-            {oracleCount > 0 && (
-              <span className="rounded-md bg-nebula-soft px-1.5 py-0.5 font-mono text-[10px] text-nebula">
-                {oracleCount}
-              </span>
-            )}
-          </Button>
-        </Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2"
+          onClick={() => setOracleOpen(true)}
+        >
+          <Sparkles size={14} className="text-nebula" />
+          <span>Oracle</span>
+          {oracleCount > 0 && (
+            <span className="rounded-md bg-nebula-soft px-1.5 py-0.5 font-mono text-[10px] text-nebula">
+              {oracleCount}
+            </span>
+          )}
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -103,6 +117,8 @@ export function TopBar() {
           FY
         </button>
       </div>
+
+      <OracleDrawer open={oracleOpen} onClose={() => setOracleOpen(false)} />
     </header>
   );
 }

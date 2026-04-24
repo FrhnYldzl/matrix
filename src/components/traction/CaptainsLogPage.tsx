@@ -23,6 +23,9 @@ import {
   type ScorecardRow,
   type AccountabilityRole,
 } from "@/lib/traction";
+import { goals as allGoals } from "@/lib/mock-data";
+import { GoalCard } from "../goals/GoalCard";
+import { ThemeCoverageStrip } from "../goals/ThemeCoverageStrip";
 import { Card } from "../ui/Card";
 import { Sparkline } from "../ui/Sparkline";
 import { Button } from "../ui/Button";
@@ -50,7 +53,7 @@ import {
   Users,
 } from "lucide-react";
 
-type Tab = "rocks" | "scorecard" | "issues" | "accountability" | "l10";
+type Tab = "rocks" | "scorecard" | "issues" | "accountability" | "l10" | "goals";
 
 const tabMeta: Record<
   Tab,
@@ -86,6 +89,12 @@ const tabMeta: Record<
     icon: ClipboardCheck,
     tone: "nebula",
   },
+  goals: {
+    label: "Goals · The Prophecy",
+    subLabel: "OKR'ler + yörünge",
+    icon: Target,
+    tone: "quantum",
+  },
 };
 
 export function CaptainsLogPage() {
@@ -93,10 +102,20 @@ export function CaptainsLogPage() {
   const ws = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0];
   const [tab, setTab] = useState<Tab>("rocks");
 
+  const { createdGoals } = useWorkspaceStore();
   const wsRocks = useMemo(() => rocksForWorkspace(ws.id), [ws.id]);
   const wsScorecard = useMemo(() => scorecardForWorkspace(ws.id), [ws.id]);
   const wsIssues = useMemo(() => issuesForWorkspace(ws.id), [ws.id]);
   const wsRoles = useMemo(() => accountabilityForWorkspace(ws.id), [ws.id]);
+  const wsGoals = useMemo(
+    () => [
+      ...allGoals.filter((g) => g.workspaceId === ws.id),
+      ...createdGoals
+        .filter((c) => c.entity.workspaceId === ws.id)
+        .map((c) => c.entity),
+    ],
+    [ws.id, createdGoals]
+  );
 
   const rockOnTrack = wsRocks.filter((r) => r.status === "on-track").length;
   const rockOffTrack = wsRocks.filter((r) => r.status === "off-track").length;
@@ -203,6 +222,7 @@ export function CaptainsLogPage() {
         {tab === "issues" && <IssuesTab issues={wsIssues} />}
         {tab === "accountability" && <AccountabilityTab roles={wsRoles} />}
         {tab === "l10" && <L10Tab />}
+        {tab === "goals" && <GoalsTab goals={wsGoals} workspace={ws} />}
       </section>
     </div>
   );
@@ -842,6 +862,91 @@ function L10Tab() {
           </p>
         </div>
       </Card>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Tab 6 — Goals · The Prophecy (merged from /goals)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function GoalsTab({
+  goals,
+  workspace,
+}: {
+  goals: ReturnType<typeof rocksForWorkspace> extends infer _ ? Array<{ id: string; workspaceId: string; title: string; description?: string; target: number; current: number; unit: string; trajectory: "ahead" | "on-track" | "at-risk" | "off-track"; theme?: string }> : never;
+  workspace: { id: string; name: string };
+}) {
+  const ordered = useMemo(() => {
+    const order: Record<string, number> = {
+      "off-track": 0,
+      "at-risk": 1,
+      "on-track": 2,
+      ahead: 3,
+    };
+    return [...goals].sort((a, b) => order[a.trajectory] - order[b.trajectory]);
+  }, [goals]);
+
+  const onRail = goals.filter(
+    (g) => g.trajectory === "on-track" || g.trajectory === "ahead"
+  ).length;
+  const risky = goals.filter(
+    (g) => g.trajectory === "at-risk" || g.trajectory === "off-track"
+  ).length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-text">
+            The Prophecy · OKR & yörüngeler
+          </h2>
+          <p className="mt-0.5 text-xs text-text-muted">
+            Her Rock bir goal'ün çeyreklik kesitiyken, goal'lar senelik yörüngelerin
+            tamamı. <b className="text-text">{onRail}/{goals.length}</b> rotada,{" "}
+            {risky > 0 && <b className="text-solar">{risky}</b>}{risky > 0 && " risk altında."}
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          className="gap-1.5"
+          onClick={() =>
+            toast({
+              tone: "quantum",
+              title: "Yeni OKR",
+              description:
+                "OKR editor şu an Oracle Forge üstünden çalışır — Oracle'a bir 'goal için önerim var' suggestion'ı üreterek ekleyebilirsin.",
+              action: { label: "Oracle'a git", href: "/oracle" },
+            })
+          }
+        >
+          <Target size={12} />
+          Yeni OKR
+        </Button>
+      </div>
+
+      <ThemeCoverageStrip ws={workspace as never} goals={goals as never} />
+
+      {goals.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-elevated/30 px-8 py-16 text-center">
+          <Target size={24} className="text-text-faint" />
+          <h3 className="mt-3 text-lg font-medium text-text">
+            Henüz bir hedef yok
+          </h3>
+          <p className="mt-2 max-w-md text-sm text-text-muted leading-relaxed">
+            OKR'lerini tanımladığında Matrix her ajan çağrısını, her skill
+            çalışmasını ve her workflow sonucunu otomatik olarak bu hedeflerin
+            yörüngesine işler.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          {ordered.map((g) => (
+            <GoalCard key={g.id} goal={g as never} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
