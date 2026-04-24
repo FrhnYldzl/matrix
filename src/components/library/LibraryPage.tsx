@@ -17,12 +17,14 @@ import {
   Plus,
   Search,
   Sparkles,
+  Wand2,
   Waypoints,
   Wrench,
 } from "lucide-react";
 import { MatrixHexGrid } from "../brand/MatrixHexGrid";
 import { MatrixQuote, MODULE_QUOTES } from "../brand/MatrixQuote";
 import { toast } from "@/lib/toast";
+import { OracleForgeDrawer } from "./OracleForgeDrawer";
 
 type Tab = "skill" | "agent" | "workflow";
 
@@ -40,6 +42,7 @@ export function LibraryPage() {
     useWorkspaceStore();
   const [tab, setTab] = useState<Tab>("skill");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [forgeOpen, setForgeOpen] = useState(false);
   const [q, setQ] = useState("");
 
   const lists = useMemo(() => {
@@ -113,6 +116,15 @@ export function LibraryPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="md"
+              className="gap-1.5 border-nebula/40 bg-nebula-soft/40 text-nebula hover:bg-nebula-soft"
+              onClick={() => setForgeOpen(true)}
+            >
+              <Wand2 size={14} />
+              Oracle Forge
+            </Button>
             <Button variant="primary" size="md" className="gap-1.5" onClick={() => setDrawerOpen(true)}>
               <Plus size={14} />
               Yeni {tabMeta[tab].label.slice(0, -1)}
@@ -247,6 +259,7 @@ export function LibraryPage() {
       </section>
 
       <CreateDrawer open={drawerOpen} kind={tab} onClose={() => setDrawerOpen(false)} />
+      <OracleForgeDrawer open={forgeOpen} onClose={() => setForgeOpen(false)} />
     </div>
   );
 }
