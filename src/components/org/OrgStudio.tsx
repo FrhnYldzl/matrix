@@ -109,6 +109,27 @@ function OrgStudioInner() {
   const skillCount = nodes.filter((n) => n.type === "skill").length;
   const workflowCount = nodes.filter((n) => n.type === "workflow").length;
 
+  // Empty state — portföy henüz yok ya da hepsi temizlendi
+  if (!ws) {
+    return (
+      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center">
+        <div className="max-w-md text-center">
+          <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-nebula">
+            The Architect · boş portföy
+          </div>
+          <h2 className="mt-2 text-xl font-semibold text-text">
+            Henüz bir workspace yok
+          </h2>
+          <p className="mt-2 text-sm text-text-muted">
+            Sol üstteki workspace seçici'den bir dijital asset ekle — Oracle
+            birkaç soru sorup departman/agent/skill/workflow iskeletini
+            kendisi kursun. Sonra The Architect burada canlı gelir.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] min-h-0">
       <Palette />

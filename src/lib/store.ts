@@ -44,6 +44,12 @@ interface WorkspaceState {
   createDepartment: (item: CreatedItem<Department>, source?: string) => void;
   createGoal: (item: CreatedItem<Goal>, source?: string) => void;
   createWorkspace: (item: CreatedItem<Workspace>, source?: string) => void;
+  /**
+   * Seed/demo workspaces'i (mock-data'dan gelen) siler — sadece Ferhan'ın
+   * manuel yarattıklarını bırakır. Portfolio tarafındaki "sadece gerçek
+   * asset'leri görmek istiyorum" ihtiyacı için.
+   */
+  clearDemoData: () => void;
   addStrategicTheme: (workspaceId: string, theme: StrategicTheme) => void;
   updateStrategicTheme: (
     workspaceId: string,
@@ -122,6 +128,35 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
         ? [...s.acceptedSuggestionSources, source]
         : s.acceptedSuggestionSources,
     })),
+  clearDemoData: () =>
+    set((s) => {
+      // Sadece manual/oracle origin'li workspaces kalır — seed olanlar silinir.
+      // Seed workspace'ler mock-data'dan geliyor ve store'a sadece initial
+      // state'te yükleniyor; origin bilgisi yok — bu yüzden seedWorkspaces
+      // listesiyle karşılaştırıyoruz.
+      const seedIds = new Set(seedWorkspaces.map((w) => w.id));
+      const remainingWorkspaces = s.workspaces.filter((w) => !seedIds.has(w.id));
+      const remainingIds = new Set(remainingWorkspaces.map((w) => w.id));
+
+      // Currentworkspace seed'di ise — ilk gerçek ws'e geç, o da yoksa boş bırak
+      const nextCurrent = remainingIds.has(s.currentWorkspaceId)
+        ? s.currentWorkspaceId
+        : remainingWorkspaces[0]?.id ?? "";
+
+      // İlişkili oluşturulan entity'leri de temizle (seed ws'e bağlı olanlar)
+      const keep = <T extends { workspaceId: string }>(items: CreatedItem<T>[]) =>
+        items.filter((c) => remainingIds.has(c.entity.workspaceId));
+
+      return {
+        workspaces: remainingWorkspaces,
+        currentWorkspaceId: nextCurrent,
+        createdSkills: keep(s.createdSkills),
+        createdAgents: keep(s.createdAgents),
+        createdWorkflows: keep(s.createdWorkflows),
+        createdDepartments: keep(s.createdDepartments),
+        createdGoals: keep(s.createdGoals),
+      };
+    }),
   updateWorkspace: (id, patch) =>
     set((s) => ({
       workspaces: s.workspaces.map((w) => (w.id === id ? { ...w, ...patch } : w)),

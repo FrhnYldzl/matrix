@@ -31,6 +31,7 @@ export function BlueprintSuggestionBanner() {
   const ws = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0];
 
   const stats = useMemo(() => {
+    if (!ws) return { deps: 0, ags: 0, sks: 0, wfs: 0 };
     const deps =
       seedDepartments.filter((d) => d.workspaceId === ws.id).length +
       createdDepartments.filter((c) => c.entity.workspaceId === ws.id).length;
@@ -44,9 +45,10 @@ export function BlueprintSuggestionBanner() {
       seedWorkflows.filter((w) => w.workspaceId === ws.id).length +
       createdWorkflows.filter((c) => c.entity.workspaceId === ws.id).length;
     return { deps, ags, sks, wfs };
-  }, [ws.id, createdAgents, createdSkills, createdWorkflows, createdDepartments]);
+  }, [ws, createdAgents, createdSkills, createdWorkflows, createdDepartments]);
 
   const recommendation = useMemo(() => {
+    if (!ws) return blueprints[0];
     const miss = missingDomains(ws, {
       agents: [
         ...seedAgents.filter((a) => a.workspaceId === ws.id),
@@ -68,6 +70,8 @@ export function BlueprintSuggestionBanner() {
     // Otherwise suggest the flagship
     return blueprints[0];
   }, [ws, createdAgents, createdSkills]);
+
+  if (!ws) return null;
 
   // Threshold: fewer than 5 agents + fewer than 8 skills = thin workspace
   const thin = stats.ags < 6 || stats.sks < 8;

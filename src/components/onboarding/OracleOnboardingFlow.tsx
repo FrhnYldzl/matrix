@@ -111,15 +111,44 @@ export function OracleOnboardingFlow({
   const acceptProposal = () => {
     if (!proposal || !workspace) return;
 
-    // 1. Instantiate departments first → build name→id map
-    //    Bu yapılmazsa agent'lar orphan departmentId'e bağlı olur ve
-    //    Org Studio crash eder ("Cannot read properties of undefined (reading 'name')")
+    // ───────────────────────────────────────────────────────────────────────
+    // Pre-compute ID maps so every cross-reference is resolved with a real
+    // ID before anything hits the store. Bu yapılmazsa:
+    //   - agent'lar orphan departmentId ile kalıyordu (Org Studio crash)
+    //   - skill'lerin ownerAgentId'si "" oluyordu (React Flow floating edges)
+    //   - agent.skillIds [] kalıyordu (Agent profilinde "hiç skill yok")
+    // ───────────────────────────────────────────────────────────────────────
+
+    const rand = () => Math.random().toString(36).slice(2, 6);
     const deptNameToId: Record<string, string> = {};
     proposal.departments.forEach((d) => {
-      const deptId = `dept-${workspace.id}-${d.name}-${Math.random().toString(36).slice(2, 6)}`;
-      deptNameToId[d.name] = deptId;
+      deptNameToId[d.name] = `dept-${workspace.id}-${d.name}-${rand()}`;
+    });
+
+    const agentNameToId: Record<string, string> = {};
+    proposal.agents.forEach((a) => {
+      agentNameToId[a.name] = `ag-${workspace.id}-${a.name}-${rand()}`;
+    });
+
+    const skillNameToId: Record<string, string> = {};
+    proposal.skills.forEach((s) => {
+      skillNameToId[s.name] = `sk-${workspace.id}-${s.name}-${rand()}`;
+    });
+
+    // Reverse lookup: skillName → ownerAgentId (first agent that declares it)
+    const skillOwnerAgentId: Record<string, string> = {};
+    proposal.agents.forEach((a) => {
+      a.skillNames.forEach((skName) => {
+        if (!skillOwnerAgentId[skName]) {
+          skillOwnerAgentId[skName] = agentNameToId[a.name] ?? "";
+        }
+      });
+    });
+
+    // 1. Departments
+    proposal.departments.forEach((d) => {
       const dept: Department = {
-        id: deptId,
+        id: deptNameToId[d.name],
         workspaceId: workspace.id,
         name: d.displayName,
         description: d.summary,
@@ -132,12 +161,37 @@ export function OracleOnboardingFlow({
       );
     });
 
-    // 2. Instantiate skills
+    // 2. Agents — real departmentId + real skillIds
+    proposal.agents.forEach((a) => {
+      const realSkillIds = a.skillNames
+        .map((n) => skillNameToId[n])
+        .filter((id): id is string => Boolean(id));
+      const agent: Agent = {
+        id: agentNameToId[a.name],
+        workspaceId: workspace.id,
+        departmentId: deptNameToId[a.departmentName] ?? "",
+        name: a.name,
+        displayName: a.displayName,
+        description: a.summary,
+        model: a.model,
+        status: "idle",
+        scopes: ["read"],
+        skillIds: realSkillIds,
+        callsToday: 0,
+        successRate: 0,
+      };
+      createAgent(
+        { entity: agent, origin: "oracle", createdAt: new Date().toISOString() },
+        `oracle-onboarding:${workspace.id}`
+      );
+    });
+
+    // 3. Skills — real ownerAgentId (via reverse lookup)
     proposal.skills.forEach((s) => {
       const skill: Skill = {
-        id: `sk-${workspace.id}-${s.name}-${Math.random().toString(36).slice(2, 6)}`,
+        id: skillNameToId[s.name],
         workspaceId: workspace.id,
-        ownerAgentId: "",
+        ownerAgentId: skillOwnerAgentId[s.name] ?? "",
         name: s.name,
         displayName: s.displayName,
         description: s.summary,
@@ -151,34 +205,11 @@ export function OracleOnboardingFlow({
       );
     });
 
-    // 3. Instantiate agents — departmentId artık gerçek ID (yukarıdaki map'ten)
-    proposal.agents.forEach((a) => {
-      const realDeptId = deptNameToId[a.departmentName] ?? "";
-      const agent: Agent = {
-        id: `ag-${workspace.id}-${a.name}-${Math.random().toString(36).slice(2, 6)}`,
-        workspaceId: workspace.id,
-        departmentId: realDeptId,
-        name: a.name,
-        displayName: a.displayName,
-        description: a.summary,
-        model: a.model,
-        status: "idle",
-        scopes: ["read"],
-        skillIds: [],
-        callsToday: 0,
-        successRate: 0,
-      };
-      createAgent(
-        { entity: agent, origin: "oracle", createdAt: new Date().toISOString() },
-        `oracle-onboarding:${workspace.id}`
-      );
-    });
-
-    // 4. Instantiate workflows — ilk department'a bağla (yoksa boş)
+    // 4. Workflows — ilk department'a bağla (yoksa boş)
     const firstDeptId = Object.values(deptNameToId)[0] ?? "";
     proposal.workflows.forEach((w) => {
       const workflow: Workflow = {
-        id: `wf-${workspace.id}-${w.name}-${Math.random().toString(36).slice(2, 6)}`,
+        id: `wf-${workspace.id}-${w.name}-${rand()}`,
         workspaceId: workspace.id,
         departmentId: firstDeptId,
         name: w.name,

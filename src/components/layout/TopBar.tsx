@@ -35,16 +35,18 @@ export function TopBar() {
   }, [oracleOpen]);
   const oracleCount = useMemo(
     () =>
-      scanWorkspace({
-        workspace: ws,
-        departments: allDepartments.filter((d) => d.workspaceId === ws.id),
-        agents: allAgents.filter((a) => a.workspaceId === ws.id),
-        skills: allSkills.filter((s) => s.workspaceId === ws.id),
-        workflows: allWorkflows.filter((w) => w.workspaceId === ws.id),
-        goals: allGoals.filter((g) => g.workspaceId === ws.id),
-        connectors: allConnectorsTop,
-        budgets: getBudgetsTop(ws.id),
-      }).length,
+      ws
+        ? scanWorkspace({
+            workspace: ws,
+            departments: allDepartments.filter((d) => d.workspaceId === ws.id),
+            agents: allAgents.filter((a) => a.workspaceId === ws.id),
+            skills: allSkills.filter((s) => s.workspaceId === ws.id),
+            workflows: allWorkflows.filter((w) => w.workspaceId === ws.id),
+            goals: allGoals.filter((g) => g.workspaceId === ws.id),
+            connectors: allConnectorsTop,
+            budgets: getBudgetsTop(ws.id),
+          }).length
+        : 0,
     [ws]
   );
 
@@ -107,7 +109,7 @@ export function TopBar() {
           onClick={() =>
             toast({
               tone: "ion",
-              title: `${ws.name}`,
+              title: ws ? ws.name : "Matrix OS",
               description: `Ferhan · patron · ${workspaces.length} workspace aktif.`,
               action: { label: "Çıkış yap", href: "/api/auth/logout" },
             })

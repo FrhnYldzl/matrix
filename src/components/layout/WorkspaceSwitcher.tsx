@@ -2,11 +2,13 @@
 
 import { cn } from "@/lib/cn";
 import { useWorkspaceStore } from "@/lib/store";
-import { Check, ChevronsUpDown, Plus, Trophy } from "lucide-react";
+import { workspaces as seedWorkspaces } from "@/lib/mock-data";
+import { Check, ChevronsUpDown, Plus, Trash2, Trophy } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 import { OracleOnboardingFlow } from "../onboarding/OracleOnboardingFlow";
 import { estimateXp, progressToNextRank } from "@/lib/gamification";
+import { toast } from "@/lib/toast";
 import type { AssetTemplate } from "@/lib/asset-templates";
 import type { Workspace } from "@/lib/types";
 
@@ -25,8 +27,15 @@ export function WorkspaceSwitcher() {
     acceptedSuggestionSources,
     createdSkills,
     createdWorkflows,
+    clearDemoData,
   } = useWorkspaceStore();
   const current = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0];
+  // Seed vs real — "Demo datayı temizle" butonu sadece seed workspace varsa çıkar
+  const seedIdSet = useMemo(() => new Set(seedWorkspaces.map((w) => w.id)), []);
+  const hasSeedData = useMemo(
+    () => workspaces.some((w) => seedIdSet.has(w.id)),
+    [workspaces, seedIdSet]
+  );
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   // Post-create Oracle onboarding
@@ -52,6 +61,45 @@ export function WorkspaceSwitcher() {
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
   }, []);
+
+  // Empty state — kullanıcı "Clear demo data" bastıktan sonra hiç ws kalmayabilir
+  if (!current) {
+    return (
+      <div className="relative">
+        <button
+          onClick={() => setCreateOpen(true)}
+          className="group flex items-center gap-3 rounded-lg border border-dashed border-nebula/40 bg-nebula-soft/20 px-3 py-1.5 text-left transition-all hover:border-nebula/60 hover:bg-nebula-soft/30"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-md border border-nebula/40 text-nebula">
+            <Plus size={14} />
+          </span>
+          <span className="flex flex-col leading-tight">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-nebula">Başlangıç</span>
+            <span className="text-sm font-medium text-text">İlk workspace'i oluştur</span>
+          </span>
+        </button>
+
+        <CreateWorkspaceDialog
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onSuccess={(ws, tpl) => {
+            setOnboardingWs(ws);
+            setOnboardingTpl(tpl);
+          }}
+        />
+
+        <OracleOnboardingFlow
+          open={onboardingWs != null && onboardingTpl != null}
+          onClose={() => {
+            setOnboardingWs(null);
+            setOnboardingTpl(null);
+          }}
+          workspace={onboardingWs}
+          template={onboardingTpl}
+        />
+      </div>
+    );
+  }
 
   return (
     <div ref={ref} className="relative">
@@ -188,6 +236,28 @@ export function WorkspaceSwitcher() {
               <Plus size={14} />
               Yeni şirket / proje ekle
             </button>
+            {hasSeedData && (
+              <button
+                onClick={() => {
+                  const seedCount = workspaces.filter((w) => seedIdSet.has(w.id)).length;
+                  clearDemoData();
+                  setOpen(false);
+                  toast({
+                    tone: "nebula",
+                    title: "Demo veri temizlendi",
+                    description: `${seedCount} seed workspace ve ilişkili entity'ler kaldırıldı. Artık sadece senin gerçek portföyün görünüyor.`,
+                  });
+                }}
+                className="mt-1 flex w-full items-center gap-2 rounded-md border border-crimson/20 bg-crimson-soft/20 px-3 py-2 text-left text-sm text-crimson transition-colors hover:bg-crimson-soft/40"
+                title="Mock/demo workspace'leri siler, sadece senin yarattığın gerçek asset'ler kalır"
+              >
+                <Trash2 size={13} />
+                Demo veriyi temizle
+                <span className="ml-auto font-mono text-[10px] opacity-70">
+                  {workspaces.filter((w) => seedIdSet.has(w.id)).length} seed
+                </span>
+              </button>
+            )}
           </div>
         </div>
       )}
