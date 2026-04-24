@@ -3,6 +3,7 @@ import {
   Activity,
   BarChart3,
   BookOpenCheck,
+  ClipboardList,
   Compass,
   Database,
   LayoutGrid,
@@ -136,6 +137,15 @@ export const navItems: NavItem[] = [
     icon: ScrollText,
     group: "ops",
     accent: "nebula",
+  },
+  {
+    href: "/operator",
+    label: "The Operator",
+    subLabel: "Task Board",
+    tagline: "dijital + fiziksel görevler",
+    icon: ClipboardList,
+    group: "ops",
+    accent: "ion",
   },
   {
     href: "/oracle",

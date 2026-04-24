@@ -487,6 +487,46 @@ enum RunStatus {
   CANCELLED
 }
 
+// ─── The Operator — Task board (digital + physical) ───────────────────────
+// Matrix native task'lar VEYA Linear/Notion/Asana/Trello/Jira iki yönlü sync.
+
+model Task {
+  id                String   @id @default(cuid())
+  workspaceId       String
+  title             String
+  description       String?
+  realm             String   // digital / physical
+  status            String   // todo / doing / review / done / blocked
+  priority          String   // p0 / p1 / p2 / p3
+  ownerName         String
+  ownerKind         String   // agent / human
+  tags              String[]
+  dueAt             DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  // Source / sync
+  source            String   @default("matrix")
+  externalId        String?
+  externalUrl       String?
+  lastSyncedAt      DateTime?
+  // Cross-linking
+  relatedRockId     String?
+  relatedIssueId    String?
+  relatedWorkflowId String?
+  relatedAgentId    String?
+  // Effort
+  estimatedMinutes  Int?
+  actualMinutes     Int?
+  requiresApproval  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, realm])
+  @@index([externalId])
+  @@map("tasks")
+}
+
 // ─── Killswitch state (global) ─────────────────────────────────────────────
 
 model SystemState {

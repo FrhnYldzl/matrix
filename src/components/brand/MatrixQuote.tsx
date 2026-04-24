@@ -134,6 +134,11 @@ export const MODULE_QUOTES: Record<
     speaker: "Morpheus",
     tone: "nebula",
   },
+  "/operator": {
+    line: "I hope you're ready, because if you're not, we're all gonna die.",
+    speaker: "Tank",
+    tone: "ion",
+  },
   "/oracle": {
     line: "Being The One is just like being in love. No one can tell you you're in love — you just know it.",
     speaker: "The Oracle",
