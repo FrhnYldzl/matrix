@@ -24,7 +24,7 @@ import {
   type InterviewAnswers,
   type OracleProposal,
 } from "@/lib/oracle-onboarding";
-import type { Workspace, Skill, Agent, Workflow } from "@/lib/types";
+import type { Workspace, Skill, Agent, Workflow, Department } from "@/lib/types";
 import {
   AlertCircle,
   ArrowLeft,
@@ -77,7 +77,7 @@ export function OracleOnboardingFlow({
   const [proposal, setProposal] = useState<OracleProposal | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  const { createSkill, createAgent, createWorkflow } = useWorkspaceStore();
+  const { createSkill, createAgent, createWorkflow, createDepartment } = useWorkspaceStore();
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -111,7 +111,28 @@ export function OracleOnboardingFlow({
   const acceptProposal = () => {
     if (!proposal || !workspace) return;
 
-    // Instantiate skills
+    // 1. Instantiate departments first → build name→id map
+    //    Bu yapılmazsa agent'lar orphan departmentId'e bağlı olur ve
+    //    Org Studio crash eder ("Cannot read properties of undefined (reading 'name')")
+    const deptNameToId: Record<string, string> = {};
+    proposal.departments.forEach((d) => {
+      const deptId = `dept-${workspace.id}-${d.name}-${Math.random().toString(36).slice(2, 6)}`;
+      deptNameToId[d.name] = deptId;
+      const dept: Department = {
+        id: deptId,
+        workspaceId: workspace.id,
+        name: d.displayName,
+        description: d.summary,
+        owner: "Ferhan Y.",
+        health: 80,
+      };
+      createDepartment(
+        { entity: dept, origin: "oracle", createdAt: new Date().toISOString() },
+        `oracle-onboarding:${workspace.id}`
+      );
+    });
+
+    // 2. Instantiate skills
     proposal.skills.forEach((s) => {
       const skill: Skill = {
         id: `sk-${workspace.id}-${s.name}-${Math.random().toString(36).slice(2, 6)}`,
@@ -130,12 +151,13 @@ export function OracleOnboardingFlow({
       );
     });
 
-    // Instantiate agents
+    // 3. Instantiate agents — departmentId artık gerçek ID (yukarıdaki map'ten)
     proposal.agents.forEach((a) => {
+      const realDeptId = deptNameToId[a.departmentName] ?? "";
       const agent: Agent = {
         id: `ag-${workspace.id}-${a.name}-${Math.random().toString(36).slice(2, 6)}`,
         workspaceId: workspace.id,
-        departmentId: a.departmentName,
+        departmentId: realDeptId,
         name: a.name,
         displayName: a.displayName,
         description: a.summary,
@@ -152,12 +174,13 @@ export function OracleOnboardingFlow({
       );
     });
 
-    // Instantiate workflows
+    // 4. Instantiate workflows — ilk department'a bağla (yoksa boş)
+    const firstDeptId = Object.values(deptNameToId)[0] ?? "";
     proposal.workflows.forEach((w) => {
       const workflow: Workflow = {
         id: `wf-${workspace.id}-${w.name}-${Math.random().toString(36).slice(2, 6)}`,
         workspaceId: workspace.id,
-        departmentId: "",
+        departmentId: firstDeptId,
         name: w.name,
         cadence: w.cadence,
         nextRun: "",

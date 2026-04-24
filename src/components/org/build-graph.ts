@@ -55,6 +55,31 @@ export function buildOrgGraph(workspaceId: string, extras: BuildExtras = {}): Or
     ...(extras.extraWorkflows || []).filter((w) => w.workspaceId === workspaceId),
   ];
 
+  // Defensive: create a synthetic "orphan" department for any agent/workflow
+  // whose departmentId doesn't match a real department. This prevents
+  // Org Studio crashes when newly-forged entities reference stale dept ids.
+  const deptIdSet = new Set(wsDepartments.map((d) => d.id));
+  const hasOrphans =
+    wsAgents.some((a) => !deptIdSet.has(a.departmentId)) ||
+    wsWorkflows.some((w) => !deptIdSet.has(w.departmentId));
+  if (hasOrphans) {
+    wsDepartments.push({
+      id: `dept-orphan-${workspaceId}`,
+      workspaceId,
+      name: "Unassigned",
+      description: "Henüz bir departmana atanmamış ajan / workflow'lar",
+      owner: "—",
+      health: 50,
+    });
+    const orphanId = `dept-orphan-${workspaceId}`;
+    wsAgents.forEach((a) => {
+      if (!deptIdSet.has(a.departmentId)) a.departmentId = orphanId;
+    });
+    wsWorkflows.forEach((w) => {
+      if (!deptIdSet.has(w.departmentId)) w.departmentId = orphanId;
+    });
+  }
+
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 

@@ -15,7 +15,6 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWorkspaceStore } from "@/lib/store";
-import { workspaces } from "@/lib/mock-data";
 import { buildOrgGraph } from "./build-graph";
 import { AgentNode } from "./nodes/AgentNode";
 import { SkillNode } from "./nodes/SkillNode";
@@ -37,11 +36,12 @@ const nodeTypes = {
 
 function OrgStudioInner() {
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
   const createdAgents = useWorkspaceStore((s) => s.createdAgents);
   const createdSkills = useWorkspaceStore((s) => s.createdSkills);
   const createdWorkflows = useWorkspaceStore((s) => s.createdWorkflows);
   const createdDepartments = useWorkspaceStore((s) => s.createdDepartments);
-  const ws = workspaces.find((w) => w.id === wsId)!;
+  const ws = workspaces.find((w) => w.id === wsId) ?? workspaces[0];
 
   const extras = useMemo(
     () => ({
