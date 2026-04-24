@@ -2,18 +2,20 @@
 /**
  * Matrix OS · Railway start wrapper.
  *
- * Runs:
- *   1. Prisma migrate deploy — BUT ONLY IF DATABASE_URL is set
- *      (Railway'e Postgres plugin eklenmemişse skip eder, Matrix yine ayağa kalkar)
- *   2. Next.js production server
+ * 1. Prisma migrate deploy — if DATABASE_URL is set (graceful skip otherwise)
+ * 2. Next.js production server on Railway-assigned $PORT (fallback 3000)
  *
- * Böylece ilk deploy'da DB attach edilmeden önce bile frontend yaşar.
- * DB sonradan eklendiğinde migrate otomatik çalışır (sonraki restart'ta).
+ * Explicit -p $PORT ensures Railway's dynamic port allocation is honored
+ * even if Next.js's PORT pickup changes across versions.
  */
 
 const { spawnSync } = require("node:child_process");
 
+const PORT = process.env.PORT || "3000";
+const HOST = process.env.HOST || "0.0.0.0";
+
 function run(cmd, args, opts = {}) {
+  console.log(`[matrix/start] $ ${cmd} ${args.join(" ")}`);
   const r = spawnSync(cmd, args, { stdio: "inherit", shell: true, ...opts });
   return r.status === 0;
 }
@@ -35,6 +37,6 @@ if (process.env.DATABASE_URL) {
   );
 }
 
-console.log("[matrix/start] starting Next.js production server");
-const ok = run("npx", ["next", "start"]);
+console.log(`[matrix/start] starting Next.js on ${HOST}:${PORT}`);
+const ok = run("npx", ["next", "start", "-H", HOST, "-p", PORT]);
 process.exit(ok ? 0 : 1);
