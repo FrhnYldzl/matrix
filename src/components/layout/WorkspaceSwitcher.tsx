@@ -2,9 +2,10 @@
 
 import { cn } from "@/lib/cn";
 import { useWorkspaceStore } from "@/lib/store";
-import { Check, ChevronsUpDown, Plus } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Check, ChevronsUpDown, Plus, Trophy } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
+import { estimateXp, progressToNextRank } from "@/lib/gamification";
 
 const accentRing: Record<string, string> = {
   ion: "from-ion/80 to-ion/30",
@@ -14,11 +15,29 @@ const accentRing: Record<string, string> = {
 };
 
 export function WorkspaceSwitcher() {
-  const { currentWorkspaceId, setWorkspace, workspaces } = useWorkspaceStore();
+  const {
+    currentWorkspaceId,
+    setWorkspace,
+    workspaces,
+    acceptedSuggestionSources,
+    createdSkills,
+    createdWorkflows,
+  } = useWorkspaceStore();
   const current = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0];
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Gamification — XP + rank derived from portfolio state
+  const rankProgress = useMemo(() => {
+    const xp = estimateXp({
+      workspaceCount: workspaces.length,
+      acceptedSuggestions: acceptedSuggestionSources.length,
+      createdSkills: createdSkills.length,
+      createdWorkflows: createdWorkflows.length,
+    });
+    return progressToNextRank(xp);
+  }, [workspaces.length, acceptedSuggestionSources.length, createdSkills.length, createdWorkflows.length]);
 
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -60,6 +79,64 @@ export function WorkspaceSwitcher() {
             <div className="mt-0.5 text-sm text-text-muted">
               Aktif workspace'i değiştir veya yeni bir tane ekle.
             </div>
+          </div>
+
+          {/* Rank pill */}
+          <div className="border-b border-border/60 bg-elevated/30 px-4 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Trophy
+                  size={11}
+                  className={cn(
+                    rankProgress.current.tone === "crimson" && "text-crimson",
+                    rankProgress.current.tone === "ion" && "text-ion",
+                    rankProgress.current.tone === "quantum" && "text-quantum",
+                    rankProgress.current.tone === "nebula" && "text-nebula",
+                    rankProgress.current.tone === "solar" && "text-solar"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "font-mono text-[10px] uppercase tracking-[0.2em]",
+                    rankProgress.current.tone === "crimson" && "text-crimson",
+                    rankProgress.current.tone === "ion" && "text-ion",
+                    rankProgress.current.tone === "quantum" && "text-quantum",
+                    rankProgress.current.tone === "nebula" && "text-nebula",
+                    rankProgress.current.tone === "solar" && "text-solar"
+                  )}
+                >
+                  {rankProgress.current.label}
+                </span>
+              </div>
+              {rankProgress.next && (
+                <span className="font-mono text-[9px] text-text-faint">
+                  {rankProgress.xpInCurrent} / {rankProgress.xpNeededForNext} XP
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-text-muted">
+              {rankProgress.current.tagline}
+            </p>
+            {rankProgress.next && (
+              <div className="mt-2">
+                <div className="h-1 overflow-hidden rounded-full bg-elevated">
+                  <div
+                    className={cn(
+                      "h-full transition-all",
+                      rankProgress.current.tone === "crimson" && "bg-crimson",
+                      rankProgress.current.tone === "ion" && "bg-ion",
+                      rankProgress.current.tone === "quantum" && "bg-quantum",
+                      rankProgress.current.tone === "nebula" && "bg-nebula",
+                      rankProgress.current.tone === "solar" && "bg-solar"
+                    )}
+                    style={{ width: `${rankProgress.pct}%` }}
+                  />
+                </div>
+                <div className="mt-1 font-mono text-[9px] text-text-faint">
+                  sonraki: {rankProgress.next.label}
+                </div>
+              </div>
+            )}
           </div>
           <ul className="py-1.5">
             {workspaces.map((w) => {
