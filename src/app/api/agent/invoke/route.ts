@@ -19,6 +19,9 @@ export async function POST(req: Request) {
       skillId: body.skillId,
       workflowId: body.workflowId,
       input: body.input ?? {},
+      userPrompt: body.userPrompt,
+      systemPrompt: body.systemPrompt,
+      model: body.model,
       triggerKind: body.triggerKind ?? "api",
       actorKindForAudit: body.agentId
         ? "agent"

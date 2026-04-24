@@ -9,10 +9,13 @@
  *   5. Audit event yaz (her başarılı/başarısız invocation)
  *   6. Cost entry yaz (input/output tokens × model fiyat)
  *
- * Bu sprint'te skeleton — gerçek SDK entegrasyonu B+1 sprint'te.
+ * C.3 · Anthropic SDK entegre edildi. ANTHROPIC_API_KEY varsa gerçek
+ * Claude'a konuşur, yoksa simulated mode'da çalışmaya devam eder —
+ * end-to-end akış her halükarda test edilebilir.
  */
 
 import { db } from "@/lib/db";
+import { callClaude, estimateCostUsd, DEFAULT_MODEL, type ClaudeModelId } from "./claude";
 
 export interface InvokeParams {
   workspaceId: string;
@@ -23,6 +26,11 @@ export interface InvokeParams {
   triggerKind: "scheduled" | "webhook" | "manual" | "api";
   actorKindForAudit: "agent" | "skill" | "workflow" | "user";
   actorName: string;
+  /** Optional LLM tuning — skill-level defaults override the orchestrator default */
+  model?: ClaudeModelId;
+  systemPrompt?: string;
+  /** The instruction/prompt sent to Claude — built by the skill or passed raw */
+  userPrompt?: string;
 }
 
 export interface InvokeResult {
@@ -31,6 +39,7 @@ export interface InvokeResult {
   output?: Record<string, unknown>;
   error?: string;
   totalCostUsd?: number;
+  mode?: "real" | "simulated";
 }
 
 export class OrchestratorError extends Error {
@@ -119,14 +128,28 @@ export async function invoke(params: InvokeParams): Promise<InvokeResult> {
   const started = Date.now();
 
   try {
-    // ── Claude Agent SDK call goes here ──────────────────────────────────
-    // const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    // const response = await client.messages.create({ ... })
-    //
-    // For the skeleton we just simulate:
+    // ── Claude Agent SDK call ────────────────────────────────────────────
+    const userPrompt =
+      params.userPrompt ??
+      (typeof params.input === "object"
+        ? JSON.stringify(params.input, null, 2)
+        : String(params.input));
+
+    const claudeResult = await callClaude({
+      model: params.model ?? DEFAULT_MODEL,
+      system: params.systemPrompt,
+      user: userPrompt,
+    });
+
+    const costUsd = estimateCostUsd(claudeResult.model, claudeResult.usage);
+
     const output = {
-      message: `[skeleton] invocation ok · triggerKind=${triggerKind}`,
-      echoInput: params.input as object,
+      text: claudeResult.text,
+      model: claudeResult.model,
+      mode: claudeResult.mode,
+      usage: claudeResult.usage,
+      durationMs: claudeResult.durationMs,
+      costUsd,
     };
 
     await db.agentRun.update({
@@ -135,8 +158,35 @@ export async function invoke(params: InvokeParams): Promise<InvokeResult> {
         status: "SUCCESS",
         finishedAt: new Date(),
         output: output as object,
+        totalTokensIn: claudeResult.usage.inputTokens,
+        totalTokensOut: claudeResult.usage.outputTokens,
+        totalCostUsd: costUsd,
       },
     });
+
+    // ── Cost entry (The Tribute için) ────────────────────────────────────
+    // Real mode'da her call maliyet kaydına işlenir. Simulated mode'da
+    // 0 USD entry eklemeyiz — çünkü gerçekten harcama yok.
+    if (claudeResult.mode === "real") {
+      await db.costEntry.create({
+        data: {
+          workspaceId,
+          connectorId: "c-claude",
+          actorKind: actorKindForAudit,
+          actorId: params.agentId ?? params.skillId ?? params.workflowId,
+          actorName,
+          kind: "llm-tokens",
+          amountUsd: costUsd,
+          metadata: {
+            model: claudeResult.model,
+            inputTokens: claudeResult.usage.inputTokens,
+            outputTokens: claudeResult.usage.outputTokens,
+            durationMs: claudeResult.durationMs,
+          } as object,
+          traceId: run.traceId,
+        },
+      });
+    }
 
     await db.auditEvent.create({
       data: {
@@ -146,11 +196,24 @@ export async function invoke(params: InvokeParams): Promise<InvokeResult> {
         eventType: "agent.invoke",
         result: "success",
         durationMs: Date.now() - started,
+        payload: {
+          model: claudeResult.model,
+          mode: claudeResult.mode,
+          inputTokens: claudeResult.usage.inputTokens,
+          outputTokens: claudeResult.usage.outputTokens,
+          costUsd,
+        } as object,
         traceId: run.traceId,
       },
     });
 
-    return { runId: run.id, status: "SUCCESS", output };
+    return {
+      runId: run.id,
+      status: "SUCCESS",
+      output,
+      totalCostUsd: costUsd,
+      mode: claudeResult.mode,
+    };
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : String(e);
     await db.agentRun.update({
