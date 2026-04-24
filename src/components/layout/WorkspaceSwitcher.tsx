@@ -5,7 +5,10 @@ import { useWorkspaceStore } from "@/lib/store";
 import { Check, ChevronsUpDown, Plus, Trophy } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
+import { OracleOnboardingFlow } from "../onboarding/OracleOnboardingFlow";
 import { estimateXp, progressToNextRank } from "@/lib/gamification";
+import type { AssetTemplate } from "@/lib/asset-templates";
+import type { Workspace } from "@/lib/types";
 
 const accentRing: Record<string, string> = {
   ion: "from-ion/80 to-ion/30",
@@ -26,6 +29,9 @@ export function WorkspaceSwitcher() {
   const current = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0];
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  // Post-create Oracle onboarding
+  const [onboardingWs, setOnboardingWs] = useState<Workspace | null>(null);
+  const [onboardingTpl, setOnboardingTpl] = useState<AssetTemplate | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   // Gamification — XP + rank derived from portfolio state
@@ -189,6 +195,21 @@ export function WorkspaceSwitcher() {
       <CreateWorkspaceDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
+        onSuccess={(ws, tpl) => {
+          // Workspace created — immediately open Oracle onboarding
+          setOnboardingWs(ws);
+          setOnboardingTpl(tpl);
+        }}
+      />
+
+      <OracleOnboardingFlow
+        open={onboardingWs != null && onboardingTpl != null}
+        onClose={() => {
+          setOnboardingWs(null);
+          setOnboardingTpl(null);
+        }}
+        workspace={onboardingWs}
+        template={onboardingTpl}
       />
     </div>
   );

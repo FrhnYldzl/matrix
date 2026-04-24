@@ -49,9 +49,12 @@ type Step = "picks" | "browse" | "detail";
 export function CreateWorkspaceDialog({
   open,
   onClose,
+  onSuccess,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Workspace yaratıldıktan sonra parent'a workspace + template verilir — Oracle onboarding için */
+  onSuccess?: (workspace: Workspace, template: AssetTemplate) => void;
 }) {
   const { createWorkspace, setWorkspace, workspaces } = useWorkspaceStore();
   const [step, setStep] = useState<Step>("picks");
@@ -151,7 +154,7 @@ export function CreateWorkspaceDialog({
     );
     setWorkspace(workspace.id);
 
-    // Gamification — celebrate first portfolio additions
+    // Gamification — celebrate XP milestones
     const isFirst = workspaces.length === 0;
     const isSecond = workspaces.length === 1;
     const isThird = workspaces.length === 2;
@@ -166,12 +169,16 @@ export function CreateWorkspaceDialog({
         ? "Freeborn! 3. workspace · +400 XP"
         : `${workspace.name} eklendi`,
       description: isFirst
-        ? `"Every key is a door." — The Keymaker. ${template.encouragement}`
-        : `${template.label} template'iyle kuruldu — ${template.themes.length} tema + default value anchor. Prime Program'a gidip DNA'yı özelleştir.`,
-      action: { label: "Prime Program'a git", href: "/vision" },
+        ? `"Every key is a door." — The Keymaker. Oracle hemen birkaç soru sorup kişisel kurulumunu yapacak.`
+        : `${template.label} template'iyle kuruldu. Oracle hemen onboarding interview'ına başlıyor.`,
     });
 
     setSubmitting(false);
+
+    // Parent'a handoff — Oracle onboarding flow'una geçiş için workspace + template
+    if (onSuccess) {
+      onSuccess(workspace, template);
+    }
     closeAndReset();
   };
 
