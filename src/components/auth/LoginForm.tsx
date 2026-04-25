@@ -146,6 +146,8 @@ function SuccessView({
   email: string;
   devMagicUrl?: string;
 }) {
+  // Sadece UX — kullanıcı "dev mode", "RESEND yok" gibi teknik mesajları
+  // görmemeli. Hangi kanal olursa olsun "giriş linkin hazır" hissi ver.
   return (
     <div className="mt-6 space-y-4">
       <div className="flex items-start gap-3 rounded-lg border border-quantum/30 bg-quantum-soft/15 p-4">
@@ -153,8 +155,8 @@ function SuccessView({
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-text">
             {channel === "resend"
-              ? "E-postanı kontrol et"
-              : "Dev mode · link aşağıda"}
+              ? "Giriş linkin gönderildi"
+              : "Giriş linkin hazır"}
           </div>
           <p className="mt-1 text-[12px] leading-relaxed text-text-muted">
             {channel === "resend" ? (
@@ -164,15 +166,15 @@ function SuccessView({
               </>
             ) : (
               <>
-                RESEND_API_KEY env&apos;de yok — link gönderilmedi. 15 dk
-                geçerli sign-in URL&apos;in aşağıda. Tıkla ve gir.
+                15 dakika geçerli sign-in link&apos;in hazır. Aşağıdaki düğmeye
+                tıkla, Matrix&apos;e gir.
               </>
             )}
           </p>
         </div>
       </div>
 
-      {/* Dev mode: magic URL'i direkt göster */}
+      {/* Magic URL — kanal ne olursa olsun kullanıcıya direkt buton göster */}
       {channel === "console" && devMagicUrl && (
         <a
           href={devMagicUrl}

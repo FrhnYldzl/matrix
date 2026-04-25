@@ -24,12 +24,15 @@ export async function POST(req: Request) {
     const normalized = email.trim().toLowerCase();
 
     if (getAllowedEmails().length === 0) {
+      // Allowlist boşsa kullanıcıya teknik detay vermeyelim — sade mesaj
+      console.error(
+        "[auth] MATRIX_ALLOWED_EMAILS not set — login attempted but blocked"
+      );
       return NextResponse.json(
         {
-          error:
-            "MATRIX_ALLOWED_EMAILS env değişkeni tanımlanmamış. Railway Variables'a ekle.",
+          error: "Sistem henüz partner allowlist'i ile yapılandırılmadı.",
         },
-        { status: 500 }
+        { status: 503 }
       );
     }
 
