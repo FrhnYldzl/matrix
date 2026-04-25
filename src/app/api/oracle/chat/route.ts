@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
       .join("\n\n");
 
     const result = await callClaude({
-      model: "claude-sonnet-4-6-20260110",
+      model: "claude-sonnet-4-6",
       system: SYSTEM_PROMPT,
       user: `${contextBlock}\n\n# KONUŞMA\n${conversationText}\n\nORACLE: `,
       maxTokens: 500,

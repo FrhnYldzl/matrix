@@ -12,13 +12,16 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 
-// Matrix'in kullandığı canonical model id'leri (llm-catalog.ts ile eşleşir)
+// Matrix'in kullandığı canonical model id'leri.
+// ÖNEMLI: Anthropic API model ID'leri date suffix istemiyor — düz alias kullan.
+// "claude-sonnet-4-6-20260110" gibi date-suffixed yazımlar 404 model_not_found döner.
 export type ClaudeModelId =
-  | "claude-opus-4-6-20260215" // reasoning + long-horizon tasks
-  | "claude-sonnet-4-6-20260110" // default day-to-day
-  | "claude-haiku-4-6-20260110"; // fast + low-cost triage
+  | "claude-opus-4-7" // most capable — long-horizon agentic + reasoning
+  | "claude-opus-4-6" // previous-gen Opus
+  | "claude-sonnet-4-6" // default day-to-day, balanced speed+quality
+  | "claude-haiku-4-5"; // fast + low-cost triage
 
-export const DEFAULT_MODEL: ClaudeModelId = "claude-sonnet-4-6-20260110";
+export const DEFAULT_MODEL: ClaudeModelId = "claude-sonnet-4-6";
 
 export interface ClaudeCallParams {
   /** LLM model id — default: sonnet */
@@ -127,9 +130,10 @@ const MODEL_PRICING_USD_PER_M_TOKENS: Record<
   ClaudeModelId,
   { input: number; output: number }
 > = {
-  "claude-opus-4-6-20260215": { input: 15, output: 75 },
-  "claude-sonnet-4-6-20260110": { input: 3, output: 15 },
-  "claude-haiku-4-6-20260110": { input: 0.25, output: 1.25 },
+  "claude-opus-4-7": { input: 5, output: 25 },
+  "claude-opus-4-6": { input: 5, output: 25 },
+  "claude-sonnet-4-6": { input: 3, output: 15 },
+  "claude-haiku-4-5": { input: 1, output: 5 },
 };
 
 export function estimateCostUsd(
