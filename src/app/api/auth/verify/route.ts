@@ -42,11 +42,33 @@ export async function GET(req: Request) {
   // Login başarılı → app'in içine (Command Deck) götür. Public landing "/"'e
   // değil — kullanıcı zaten içeride, çalışmaya başlasın.
   const next = url.searchParams.get("next") || "/dashboard";
-  const redirectUrl = new URL(next, url.origin);
+  // Production URL'i Railway proxy header'larından çıkar — url.origin
+  // 0.0.0.0:8080 olabilir (Next.js'in iç bind adresi).
+  const publicOrigin = resolvePublicOrigin(req);
+  const redirectUrl = new URL(next, publicOrigin);
 
   const res = NextResponse.redirect(redirectUrl);
   res.headers.set("Set-Cookie", buildSessionCookie(sessionToken));
   return res;
+}
+
+function resolvePublicOrigin(req: Request): string {
+  const manual =
+    process.env.MATRIX_PUBLIC_URL ||
+    process.env.VIBE_BUSINESS_PUBLIC_URL ||
+    process.env.NEXT_PUBLIC_APP_URL;
+  if (manual) return manual.replace(/\/$/, "");
+  const originHeader = req.headers.get("origin");
+  if (originHeader) return originHeader.replace(/\/$/, "");
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = req.headers.get("x-forwarded-proto") ?? "https";
+  if (forwardedHost) return `${forwardedProto}://${forwardedHost}`;
+  const host = req.headers.get("host");
+  if (host) {
+    const isLocalhost = host.startsWith("localhost") || host.startsWith("127.");
+    return `${isLocalhost ? "http" : "https"}://${host}`;
+  }
+  return new URL(req.url).origin;
 }
 
 function redirectToLoginWithError(req: Request, reason: string): NextResponse {

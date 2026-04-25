@@ -65,10 +65,14 @@ export async function callClaude(
   const temperature = params.temperature ?? 0.7;
   const started = Date.now();
 
-  // Matrix-spesifik variable adı öncelikli (başka projelerle karışmasın),
-  // standart ANTHROPIC_API_KEY ise fallback
+  // Multi-name fallback — Ferhan ne ad kullanırsa çalışsın, "buralarda
+  // uğraşmayalım" direktifi: VIBE_BUSINESS / MATRIX / standart, hangisi
+  // tanımlıysa onu al.
   const apiKey =
-    process.env.MATRIX_ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_API_KEY;
+    process.env.VIBE_BUSINESS_ANTHROPIC_API_KEY ??
+    process.env.VIBE_BUSINESS_API_KEY ??
+    process.env.MATRIX_ANTHROPIC_API_KEY ??
+    process.env.ANTHROPIC_API_KEY;
 
   // ── SIMULATED MODE ──────────────────────────────────────────────────────
   if (!apiKey) {
