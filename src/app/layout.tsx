@@ -19,6 +19,11 @@ export const metadata: Metadata = {
     "Wake up, Neo. Vizyondan ajana, ajandan iş akışına, iş akışından KPI'a kadar — şirketinin dijital organizasyonunu tek katmanda tasarla, işlet ve evrilt.",
 };
 
+// Matrix state-driven app — workspace verileri Zustand'dan okur, prerender
+// edilemez. Layout level'ında force-dynamic, tüm sayfalar runtime render.
+// Bu sayede empty workspace state'inde build kırılmıyor.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{

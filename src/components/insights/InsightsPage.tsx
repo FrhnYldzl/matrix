@@ -13,6 +13,15 @@ export function InsightsPage() {
   const { currentWorkspaceId, workspaces } = useWorkspaceStore();
   const ws = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0];
 
+  // Empty workspace null guard — yeni kullanıcı build'i kırmasın
+  if (!ws) {
+    return (
+      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center text-text-muted">
+        Workspace yok — sol üstten ekle veya /onboarding&apos;e git.
+      </div>
+    );
+  }
+
   // In a real build these come from audit aggregates — here: workspace-biased mock
   const delegatedHours = ws.id === "ws-ferhan-core" ? 42 : ws.id === "ws-trading-desk" ? 18 : 22;
   const managementHours = ws.id === "ws-ferhan-core" ? 6.2 : ws.id === "ws-trading-desk" ? 4.1 : 5.5;

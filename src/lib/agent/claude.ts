@@ -65,7 +65,10 @@ export async function callClaude(
   const temperature = params.temperature ?? 0.7;
   const started = Date.now();
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // Matrix-spesifik variable adı öncelikli (başka projelerle karışmasın),
+  // standart ANTHROPIC_API_KEY ise fallback
+  const apiKey =
+    process.env.MATRIX_ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_API_KEY;
 
   // ── SIMULATED MODE ──────────────────────────────────────────────────────
   if (!apiKey) {

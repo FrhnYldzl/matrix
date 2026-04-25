@@ -187,7 +187,8 @@ export async function sendMagicLinkEmail(params: {
   magicUrl: string;
 }): Promise<{ sent: boolean; channel: "resend" | "console" }> {
   const { toEmail, toName, magicUrl } = params;
-  const apiKey = process.env.RESEND_API_KEY;
+  // Matrix-spesifik variable adı öncelikli, standart RESEND_API_KEY fallback
+  const apiKey = process.env.MATRIX_RESEND_API_KEY ?? process.env.RESEND_API_KEY;
   const from = process.env.MATRIX_EMAIL_FROM || "Matrix <onboarding@resend.dev>";
 
   // Fallback: log to console when Resend not configured (dev, first-time Railway)

@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { callClaude } from "@/lib/agent/claude";
 
+// Anthropic SDK Node-only — Edge runtime'da çalışmaz
+export const runtime = "nodejs";
+// Build sırasında bu route'u prerender etme
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/oracle/onboarding
  *
