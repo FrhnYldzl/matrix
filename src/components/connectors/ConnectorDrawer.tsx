@@ -20,6 +20,7 @@ import {
 } from "@/lib/llm-catalog";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
+import { useWorkspaceStore } from "@/lib/store";
 import {
   Activity,
   Bot,
@@ -58,20 +59,31 @@ export function ConnectorDrawer({
   open: boolean;
   onClose: () => void;
 }) {
+  const attachConnector = useWorkspaceStore((s) => s.attachConnector);
+  const detachConnector = useWorkspaceStore((s) => s.detachConnector);
+  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const attachedConnectors = useWorkspaceStore((s) => s.attachedConnectors);
+
   if (!open || !connector) return null;
   const tone = statusTone(connector.status);
   const isPhysical = connector.category === "physical-world" || connector.physical;
   const isEngine = connector.category === "engines";
   const isProgram = connector.category === "free-programs";
 
-  const action =
-    connector.status === "connected"
-      ? { label: "Yeniden bağla", variant: "secondary" as const }
-      : connector.status === "needs-auth"
-      ? { label: "Yetkilendir", variant: "primary" as const }
-      : connector.status === "disconnected"
-      ? { label: "Bağla", variant: "primary" as const }
-      : { label: "Tekrar dene", variant: "secondary" as const };
+  // Bu connector mevcut workspace'e bağlı mı?
+  const isAttachedToWs =
+    !!currentWorkspaceId &&
+    (attachedConnectors[currentWorkspaceId] ?? []).includes(connector.id);
+
+  const action = isAttachedToWs
+    ? { label: "Bağlantıyı kaldır", variant: "secondary" as const }
+    : connector.status === "needs-auth"
+    ? { label: "Yetkilendir & Bağla", variant: "primary" as const }
+    : connector.status === "disconnected"
+    ? { label: "Workspace'e bağla", variant: "primary" as const }
+    : connector.status === "connected"
+    ? { label: "Workspace'e bağla", variant: "primary" as const }
+    : { label: "Tekrar dene", variant: "secondary" as const };
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -301,13 +313,36 @@ export function ConnectorDrawer({
               variant={action.variant}
               size="md"
               className="gap-1.5"
-              onClick={() =>
-                toast({
-                  tone: "ion",
-                  title: action.label,
-                  description: `${connector.name} için ${action.label.toLowerCase()} akışı başlatıldı. OAuth/key flow prod'da burada açılacak.`,
-                })
-              }
+              onClick={() => {
+                if (!currentWorkspaceId) {
+                  toast({
+                    tone: "solar",
+                    title: "Önce workspace seç",
+                    description: "Connector bir workspace'e bağlanır — sol üstten bir asset seç.",
+                  });
+                  return;
+                }
+                if (isAttachedToWs) {
+                  detachConnector(connector.id, currentWorkspaceId);
+                  toast({
+                    tone: "nebula",
+                    title: `${connector.name} bağlantısı kaldırıldı`,
+                    description: "Bu workspace'in agent'ları artık bu connector'ı kullanamaz.",
+                  });
+                } else {
+                  attachConnector(connector.id, currentWorkspaceId);
+                  // Bağlantı başarılı toast'u dopamine engine veriyor (+40 XP)
+                  // Ayrıca açıklayıcı toast — OAuth flow stub mesajı
+                  if (connector.status === "needs-auth" || connector.status === "disconnected") {
+                    toast({
+                      tone: "solar",
+                      title: "OAuth/API key gerekli",
+                      description: `${connector.name} bağlandı ama gerçek auth flow prod'da açılır. Şimdilik mock mode aktif.`,
+                      ttlMs: 6000,
+                    });
+                  }
+                }
+              }}
             >
               <KeyRound size={13} />
               {action.label}

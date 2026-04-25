@@ -3,7 +3,8 @@
 import { cn } from "@/lib/cn";
 import { useWorkspaceStore } from "@/lib/store";
 import { workspaces as seedWorkspaces } from "@/lib/mock-data";
-import { Check, ChevronsUpDown, Plus, Trash2, Trophy } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, Sparkles, Trash2, Trophy } from "lucide-react";
+import { seedDemoNewsletterAsset } from "@/lib/demo-asset";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 import { OracleOnboardingFlow } from "../onboarding/OracleOnboardingFlow";
@@ -235,6 +236,34 @@ export function WorkspaceSwitcher() {
             >
               <Plus size={14} />
               Yeni şirket / proje ekle
+            </button>
+            <button
+              onClick={() => {
+                const result = seedDemoNewsletterAsset(useWorkspaceStore.getState());
+                setOpen(false);
+                if (result) {
+                  toast({
+                    tone: "quantum",
+                    title: "Demo Newsletter asset'i hazır 🚀",
+                    description:
+                      "AI Matrix Newsletter (4 dept · 4 agent · 5 skill · 4 OKR · 4 ritual · 4 bütçe · 10 task · 2 connector) tek tıkla kuruldu. Codex'teki 13 adımı uçtan uca dolaşabilirsin.",
+                    ttlMs: 8000,
+                    action: { label: "Codex'i aç", href: "/codex" },
+                  });
+                } else {
+                  toast({
+                    tone: "crimson",
+                    title: "Demo asset yüklenemedi",
+                    description: "Newsletter template bulunamadı.",
+                  });
+                }
+              }}
+              className="mt-1 flex w-full items-center gap-2 rounded-md border border-quantum/30 bg-quantum-soft/30 px-3 py-2 text-left text-sm text-quantum transition-colors hover:bg-quantum-soft/50"
+              title="Tek tıkla AI Matrix Newsletter demo asset'i yarat — interview olmadan tüm dashboard'ları doldur"
+            >
+              <Sparkles size={13} />
+              Demo asset yükle (Newsletter)
+              <span className="ml-auto font-mono text-[10px] opacity-70">~30 entity</span>
             </button>
             {hasSeedData && (
               <button

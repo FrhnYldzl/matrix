@@ -49,6 +49,9 @@ interface WorkspaceState {
   createdOperatorTasks: CreatedItem<Task>[];
   createdRituals: CreatedItem<Ritual>[];
   createdBudgets: CreatedItem<Budget>[];
+  /** Workspace başına bağlı connector ID'leri — TrainStation attach state.
+   *  Map: workspaceId → connectorId[]. Aynı workspace bir connector'a 1 kez bağlanır. */
+  attachedConnectors: Record<string, string[]>;
   acceptedSuggestionSources: string[]; // Oracle "learning" signal
   // Dopamine — event-driven XP stream
   dopamineEvents: DopamineEvent[];
@@ -73,6 +76,11 @@ interface WorkspaceState {
    *  ritm tipine göre prime.program.block.done veya weekly.review.completed. */
   completeRitual: (ritualId: string) => void;
   createBudget: (item: CreatedItem<Budget>, source?: string) => void;
+  /** Bir connector'ı current workspace'e bağla.
+   *  Aynı connector zaten varsa no-op. Connector attach event tetiklenir (+40 XP). */
+  attachConnector: (connectorId: string, workspaceId?: string) => void;
+  /** Connector'ı çıkar (silent — XP geri alınmaz, sadece state update) */
+  detachConnector: (connectorId: string, workspaceId?: string) => void;
   createWorkspace: (item: CreatedItem<Workspace>, source?: string) => void;
   /**
    * Seed/demo workspaces'i (mock-data'dan gelen) siler — sadece Ferhan'ın
@@ -124,6 +132,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   createdOperatorTasks: [],
   createdRituals: [],
   createdBudgets: [],
+  attachedConnectors: {},
   acceptedSuggestionSources: [],
   dopamineEvents: [],
   setWorkspace: (id) => set({ currentWorkspaceId: id }),
@@ -419,6 +428,37 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       meta: { budgetLabel: item.entity.scopeLabel },
     });
   },
+  attachConnector: (connectorId, workspaceId) => {
+    const state = get();
+    const wsId = workspaceId ?? state.currentWorkspaceId;
+    if (!wsId) return;
+    const existing = state.attachedConnectors[wsId] ?? [];
+    if (existing.includes(connectorId)) return; // already attached
+    set((s) => ({
+      attachedConnectors: {
+        ...s.attachedConnectors,
+        [wsId]: [...existing, connectorId],
+      },
+    }));
+    get().recordAction("connector.attached", {
+      workspaceId: wsId,
+      meta: { connectorId },
+    });
+  },
+  detachConnector: (connectorId, workspaceId) => {
+    const state = get();
+    const wsId = workspaceId ?? state.currentWorkspaceId;
+    if (!wsId) return;
+    const existing = state.attachedConnectors[wsId] ?? [];
+    if (!existing.includes(connectorId)) return; // already detached
+    set((s) => ({
+      attachedConnectors: {
+        ...s.attachedConnectors,
+        [wsId]: existing.filter((id) => id !== connectorId),
+      },
+    }));
+    // No XP penalty — silent state change
+  },
   createWorkspace: (item, source) => {
     set((s) => ({
       workspaces: [...s.workspaces, item.entity],
@@ -452,6 +492,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         (e) => !e.workspaceId || remainingIds.has(e.workspaceId)
       );
 
+      // attachedConnectors da silinen ws'lerden temizlensin
+      const keptAttached: Record<string, string[]> = {};
+      Object.entries(s.attachedConnectors).forEach(([wsId, ids]) => {
+        if (remainingIds.has(wsId)) keptAttached[wsId] = ids;
+      });
+
       return {
         workspaces: remainingWorkspaces,
         currentWorkspaceId: nextCurrent,
@@ -463,6 +509,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         createdOperatorTasks: keep(s.createdOperatorTasks),
         createdRituals: keep(s.createdRituals),
         createdBudgets: keep(s.createdBudgets),
+        attachedConnectors: keptAttached,
         dopamineEvents: keptEvents,
       };
     }),

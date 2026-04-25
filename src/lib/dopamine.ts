@@ -370,6 +370,12 @@ export const CELEBRATION_MAP: Partial<Record<DopamineEventKind, CelebrationProfi
     titleFor: (xp, bonus) => `✨ Oracle Forge · +${xp + bonus} XP`,
     quote: QUOTES.forge,
   },
+  "connector.attached": {
+    intensity: "mid",
+    tone: "ion",
+    titleFor: (xp, bonus) => `🔌 Köprü kuruldu · +${xp + bonus} XP`,
+    description: "TrainStation'da yeni connector aktif — agent'lar artık dış dünyaya uzanabilir.",
+  },
   "oracle.suggestion.accepted": {
     intensity: "micro",
     tone: "nebula",
