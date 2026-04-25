@@ -28,6 +28,14 @@ import { toast } from "./toast";
 
 export type CreationOrigin = "oracle" | "catalog" | "import" | "manual";
 
+export interface OracleChatMessage {
+  /** "user" = Ferhan, "assistant" = Oracle */
+  role: "user" | "assistant";
+  content: string;
+  /** ISO timestamp */
+  at: string;
+}
+
 export interface CreatedItem<T> {
   entity: T;
   origin: CreationOrigin;
@@ -56,6 +64,9 @@ interface WorkspaceState {
   /** OracleStream'de "Sonra" butonuna basılan kart ID'leri. localStorage'da
    *  persist edilir — refresh atınca dismissed kartlar geri gelmez. */
   dismissedStreamItems: string[];
+  /** Sticky Oracle Command Palette (Cmd+K) — kalıcı sohbet geçmişi.
+   *  Workspace başına ayrılır: Map<workspaceId, ChatMessage[]>. */
+  oracleChatHistory: Record<string, OracleChatMessage[]>;
   acceptedSuggestionSources: string[]; // Oracle "learning" signal
   // Dopamine — event-driven XP stream
   dopamineEvents: DopamineEvent[];
@@ -89,6 +100,11 @@ interface WorkspaceState {
   dismissStreamItem: (id: string) => void;
   /** Tüm dismissed stream item'ları geri getir (Oracle: "yeniden bak") */
   resetDismissedStream: () => void;
+  /** Oracle Command Palette'e mesaj ekle (workspace bazlı).
+   *  workspaceId boş ise __global__ key'e kaydedilir (workspace yoksa). */
+  appendOracleMessage: (workspaceId: string | null, message: OracleChatMessage) => void;
+  /** Oracle chat geçmişini bir workspace için temizle */
+  clearOracleChat: (workspaceId: string | null) => void;
   createWorkspace: (item: CreatedItem<Workspace>, source?: string) => void;
   /**
    * Seed/demo workspaces'i (mock-data'dan gelen) siler — sadece Ferhan'ın
@@ -145,6 +161,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(persist((set, get) => 
   createdBudgets: [],
   attachedConnectors: {},
   dismissedStreamItems: [],
+  oracleChatHistory: {},
   acceptedSuggestionSources: [],
   dopamineEvents: [],
   setWorkspace: (id) => set({ currentWorkspaceId: id }),
@@ -478,6 +495,26 @@ export const useWorkspaceStore = create<WorkspaceState>()(persist((set, get) => 
         : { dismissedStreamItems: [...s.dismissedStreamItems, id] }
     ),
   resetDismissedStream: () => set({ dismissedStreamItems: [] }),
+  appendOracleMessage: (workspaceId, message) =>
+    set((s) => {
+      const key = workspaceId ?? "__global__";
+      const existing = s.oracleChatHistory[key] ?? [];
+      // Son 200 mesaj — context window taşmasın diye
+      const trimmed = [...existing, message].slice(-200);
+      return {
+        oracleChatHistory: {
+          ...s.oracleChatHistory,
+          [key]: trimmed,
+        },
+      };
+    }),
+  clearOracleChat: (workspaceId) =>
+    set((s) => {
+      const key = workspaceId ?? "__global__";
+      const next = { ...s.oracleChatHistory };
+      delete next[key];
+      return { oracleChatHistory: next };
+    }),
   createWorkspace: (item, source) => {
     set((s) => ({
       workspaces: [...s.workspaces, item.entity],
@@ -624,6 +661,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(persist((set, get) => 
     createdBudgets: s.createdBudgets,
     attachedConnectors: s.attachedConnectors,
     dismissedStreamItems: s.dismissedStreamItems,
+    oracleChatHistory: s.oracleChatHistory,
     acceptedSuggestionSources: s.acceptedSuggestionSources,
     dopamineEvents: s.dopamineEvents,
   }),

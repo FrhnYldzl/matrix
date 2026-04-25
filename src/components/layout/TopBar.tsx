@@ -16,24 +16,15 @@ import { scanWorkspace } from "@/lib/oracle";
 import { connectors as allConnectorsTop } from "@/lib/connectors";
 import { getBudgetsWithSpend as getBudgetsTop } from "@/lib/costs";
 import { toast } from "@/lib/toast";
-import { OracleDrawer } from "../oracle/OracleDrawer";
 import { DopamineHud } from "../gamification/DopamineHud";
+import { openOraclePalette } from "../oracle/OracleCommandPalette";
 
 export function TopBar() {
   const { currentWorkspaceId, workspaces } = useWorkspaceStore();
   const ws = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0];
   const [searchFocus, setSearchFocus] = useState(false);
-  const [oracleOpen, setOracleOpen] = useState(false);
-
-  // ESC to close Oracle drawer
-  useEffect(() => {
-    if (!oracleOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOracleOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [oracleOpen]);
+  // Oracle artık Cmd+K palette üstünden açılır (OracleCommandPalette).
+  // Eski OracleDrawer kaldırıldı — sticky palette her sayfada erişilebilir.
   const oracleCount = useMemo(
     () =>
       ws
@@ -79,11 +70,13 @@ export function TopBar() {
 
       <div className="ml-auto flex items-center gap-2">
         <DopamineHud />
+        {/* Oracle Cmd+K palette — sticky cofounder */}
         <Button
           variant="ghost"
           size="sm"
           className="gap-2"
-          onClick={() => setOracleOpen(true)}
+          onClick={() => openOraclePalette()}
+          title="Oracle ile konuş (Cmd+K / Ctrl+K)"
         >
           <Sparkles size={14} className="text-nebula" />
           <span>Oracle</span>
@@ -92,7 +85,11 @@ export function TopBar() {
               {oracleCount}
             </span>
           )}
+          <kbd className="ml-1 hidden md:inline-flex items-center gap-0.5 rounded border border-border/70 bg-elevated/40 px-1 py-0.5 font-mono text-[9px] text-text-faint">
+            <Command size={9} />K
+          </kbd>
         </Button>
+        {/* Eski drawer hâlâ duruyor (yedek) — manuel açılır, Cmd+K palette ile çakışmaz */}
         <Button
           variant="ghost"
           size="icon"
@@ -122,8 +119,6 @@ export function TopBar() {
           FY
         </button>
       </div>
-
-      <OracleDrawer open={oracleOpen} onClose={() => setOracleOpen(false)} />
     </header>
   );
 }
