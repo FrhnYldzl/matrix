@@ -50,16 +50,26 @@ import {
 } from "lucide-react";
 import { Button } from "../ui/Button";
 import { toast } from "@/lib/toast";
+import { OracleGuide } from "../oracle/OracleGuide";
 
 export function OperatorPage() {
-  const { currentWorkspaceId, workspaces } = useWorkspaceStore();
+  const { currentWorkspaceId, workspaces, createdOperatorTasks } = useWorkspaceStore();
   const ws = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0];
 
   const [realmFilter, setRealmFilter] = useState<"all" | TaskRealm>("all");
   const [ownerFilter, setOwnerFilter] = useState<"all" | "agent" | "human">("all");
   const [search, setSearch] = useState("");
 
-  const wsTasks = useMemo(() => tasksForWorkspace(ws.id), [ws.id]);
+  // Seed tasks + Oracle-onboarding'ten gelen tasks birlikte
+  const wsTasks = useMemo(() => {
+    if (!ws) return [];
+    return [
+      ...tasksForWorkspace(ws.id),
+      ...createdOperatorTasks
+        .filter((c) => c.entity.workspaceId === ws.id)
+        .map((c) => c.entity),
+    ];
+  }, [ws, createdOperatorTasks]);
 
   const filtered = useMemo(() => {
     return wsTasks.filter((t) => {
@@ -98,6 +108,14 @@ export function OperatorPage() {
   const overdue = wsTasks.filter((t) => isOverdue(t)).length;
   const approvalPending = wsTasks.filter((t) => t.requiresApproval && t.status === "review").length;
   const synced = wsTasks.filter((t) => t.source !== "matrix" && t.source !== "oracle").length;
+
+  if (!ws) {
+    return (
+      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center text-text-muted">
+        Workspace yok — sol üstten ekle.
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col">
@@ -163,6 +181,11 @@ export function OperatorPage() {
           </div>
         </div>
       </section>
+
+      {/* Oracle Guide — şu an ne yapması gerektiği */}
+      <div className="px-8 pt-6">
+        <OracleGuide page="operator" />
+      </div>
 
       {/* Filters + actions */}
       <div className="sticky top-14 z-10 flex flex-wrap items-center gap-3 border-b border-border/60 bg-void/70 px-8 py-3 backdrop-blur-md">

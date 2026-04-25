@@ -6,10 +6,18 @@ import { goals as allGoals } from "@/lib/mock-data";
 import { GoalsHero } from "./GoalsHero";
 import { GoalCard } from "./GoalCard";
 import { ThemeCoverageStrip } from "./ThemeCoverageStrip";
+import { OracleGuide } from "../oracle/OracleGuide";
 
 export function GoalsPage() {
   const { currentWorkspaceId, workspaces, createdGoals } = useWorkspaceStore();
   const ws = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0];
+  if (!ws) {
+    return (
+      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center text-text-muted">
+        Workspace yok — sol üstten ekle.
+      </div>
+    );
+  }
   const wsGoals = useMemo(
     () => [
       ...allGoals.filter((g) => g.workspaceId === ws.id),
@@ -35,6 +43,7 @@ export function GoalsPage() {
       <GoalsHero ws={ws} goals={wsGoals} />
 
       <section className="space-y-6 px-8 py-8">
+        <OracleGuide page="goals" />
         <ThemeCoverageStrip ws={ws} goals={wsGoals} />
 
         {wsGoals.length === 0 ? (

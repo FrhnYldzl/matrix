@@ -24,7 +24,9 @@ import {
   type InterviewAnswers,
   type OracleProposal,
 } from "@/lib/oracle-onboarding";
-import type { Workspace, Skill, Agent, Workflow, Department } from "@/lib/types";
+import type { Workspace, Skill, Agent, Workflow, Department, Goal, Ritual } from "@/lib/types";
+import type { Task } from "@/lib/operator";
+import type { Budget } from "@/lib/costs";
 import {
   AlertCircle,
   ArrowLeft,
@@ -77,8 +79,17 @@ export function OracleOnboardingFlow({
   const [proposal, setProposal] = useState<OracleProposal | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  const { createSkill, createAgent, createWorkflow, createDepartment, recordAction } =
-    useWorkspaceStore();
+  const {
+    createSkill,
+    createAgent,
+    createWorkflow,
+    createDepartment,
+    createGoal,
+    createOperatorTask,
+    createRitual,
+    createBudget,
+    recordAction,
+  } = useWorkspaceStore();
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -226,6 +237,118 @@ export function OracleOnboardingFlow({
       );
     });
 
+    // 5. Goals — Goals & Orbits dashboard'ına dolacak OKR'lar
+    (proposal.goals ?? []).forEach((g, i) => {
+      const goal: Goal = {
+        id: `goal-${workspace.id}-${i}-${rand()}`,
+        workspaceId: workspace.id,
+        title: g.title,
+        metric: g.metric,
+        target: g.target,
+        current: g.current,
+        unit: g.unit,
+        invert: g.invert,
+        trajectory: g.trajectory,
+        linkedAgentIds: [],
+        linkedSkillIds: [],
+        cadence: g.cadence,
+        history: [],
+      };
+      createGoal(
+        { entity: goal, origin: "oracle", createdAt: new Date().toISOString() },
+        `oracle-onboarding:${workspace.id}`
+      );
+    });
+
+    // 6. Physical tasks → The Operator (fiziksel realm)
+    const nowIso = new Date().toISOString();
+    proposal.physicalTasks.forEach((t) => {
+      const dueIso = new Date(Date.now() + t.dueInDays * 86400000).toISOString();
+      const task: Task = {
+        id: `tsk-${workspace.id}-${rand()}`,
+        workspaceId: workspace.id,
+        title: t.title,
+        description: t.description,
+        realm: "physical",
+        status: "todo",
+        priority: t.priority,
+        ownerName: "Ferhan Y.",
+        ownerKind: "human",
+        tags: ["onboarding", "physical"],
+        createdAtIso: nowIso,
+        dueAtIso: dueIso,
+        source: "oracle",
+        estimatedMinutes: t.estimatedMinutes,
+      };
+      createOperatorTask(
+        { entity: task, origin: "oracle", createdAt: nowIso },
+        `oracle-onboarding:${workspace.id}`
+      );
+    });
+
+    // 7. Quick wins → ilk 24 saat momentum task'ları
+    (proposal.quickWins ?? []).forEach((qw, i) => {
+      const task: Task = {
+        id: `tsk-qw-${workspace.id}-${i}-${rand()}`,
+        workspaceId: workspace.id,
+        title: qw.title,
+        description: qw.description,
+        realm: qw.realmHint === "library" || qw.realmHint === "control" ? "digital" : "physical",
+        status: "todo",
+        priority: "p1",
+        ownerName: "Ferhan Y.",
+        ownerKind: "human",
+        tags: ["quick-win", `realm:${qw.realmHint}`],
+        createdAtIso: nowIso,
+        dueAtIso: new Date(Date.now() + 24 * 3600000).toISOString(),
+        source: "oracle",
+        estimatedMinutes: qw.estimatedMinutes,
+      };
+      createOperatorTask(
+        { entity: task, origin: "oracle", createdAt: nowIso },
+        `oracle-onboarding:${workspace.id}`
+      );
+    });
+
+    // 8. Rituals → Prime Program'a dolacak haftalık/günlük blok'lar
+    (proposal.rituals ?? []).forEach((r, i) => {
+      const ritual: Ritual = {
+        id: `rit-${workspace.id}-${i}-${rand()}`,
+        workspaceId: workspace.id,
+        label: r.label,
+        cadence: r.cadence,
+        dayOfWeek: r.dayOfWeek,
+        timeOfDay: r.timeOfDay,
+        durationMinutes: r.durationMinutes,
+        description: r.description,
+        streak: 0,
+        active: true,
+      };
+      createRitual(
+        { entity: ritual, origin: "oracle", createdAt: nowIso },
+        `oracle-onboarding:${workspace.id}`
+      );
+    });
+
+    // 9. Budgets → Costs dashboard'ına dolacak bütçe satırları
+    (proposal.budgets ?? []).forEach((b, i) => {
+      const budget: Budget = {
+        id: `bdg-${workspace.id}-${i}-${rand()}`,
+        workspaceId: workspace.id,
+        scope: "workspace",
+        scopeId: workspace.id,
+        scopeLabel: b.label,
+        period: "month",
+        capUsd: b.monthlyUsd,
+        spentUsd: 0,
+        warnThresholdPct: 80,
+      };
+      createBudget(
+        { entity: budget, origin: "oracle", createdAt: nowIso },
+        `oracle-onboarding:${workspace.id}`
+      );
+    });
+
     setPhase("accepted");
 
     // Macro-celebration — onboarding tamamlandı. workspace.onboarded event'i
@@ -243,10 +366,14 @@ export function OracleOnboardingFlow({
 
     // Final celebration toast (dopamine toast ile overlap olmaması için daha
     // spesifik detay veriyor — summary tarafı)
+    const goalsCount = proposal.goals?.length ?? 0;
+    const ritualsCount = proposal.rituals?.length ?? 0;
+    const budgetsCount = proposal.budgets?.length ?? 0;
+    const quickWinsCount = proposal.quickWins?.length ?? 0;
     toast({
       tone: "quantum",
       title: `${workspace.name} kurulumu tamamlandı!`,
-      description: `${proposal.departments.length} departman · ${proposal.skills.length} skill · ${proposal.agents.length} agent · ${proposal.workflows.length} workflow kuruldu. ${proposal.physicalTasks.length} fiziksel task The Operator'a düştü, ${proposal.milestones.length} milestone Captain's Log Rocks'a eklendi.`,
+      description: `${proposal.departments.length} departman · ${proposal.skills.length} skill · ${proposal.agents.length} agent · ${proposal.workflows.length} workflow · ${goalsCount} OKR · ${ritualsCount} ritual · ${budgetsCount} bütçe satırı · ${proposal.physicalTasks.length + quickWinsCount} task. Tüm dashboard'lar dolu.`,
       ttlMs: 8000,
       action: { label: "The Architect'te gör", href: "/org" },
     });

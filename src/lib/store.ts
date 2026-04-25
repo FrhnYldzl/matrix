@@ -6,12 +6,15 @@ import type {
   Agent,
   Department,
   Goal,
+  Ritual,
   Skill,
   StrategicTheme,
   ValueAnchor,
   Workflow,
   Workspace,
 } from "./types";
+import type { Task } from "./operator";
+import type { Budget } from "./costs";
 import {
   CELEBRATION_MAP,
   detectRankUp,
@@ -42,6 +45,10 @@ interface WorkspaceState {
   createdWorkflows: CreatedItem<Workflow>[];
   createdDepartments: CreatedItem<Department>[];
   createdGoals: CreatedItem<Goal>[];
+  // Onboarding dashboard coverage — Oracle proposal'ından gelen ekler
+  createdOperatorTasks: CreatedItem<Task>[];
+  createdRituals: CreatedItem<Ritual>[];
+  createdBudgets: CreatedItem<Budget>[];
   acceptedSuggestionSources: string[]; // Oracle "learning" signal
   // Dopamine — event-driven XP stream
   dopamineEvents: DopamineEvent[];
@@ -54,6 +61,9 @@ interface WorkspaceState {
   createWorkflow: (item: CreatedItem<Workflow>, source?: string) => void;
   createDepartment: (item: CreatedItem<Department>, source?: string) => void;
   createGoal: (item: CreatedItem<Goal>, source?: string) => void;
+  createOperatorTask: (item: CreatedItem<Task>, source?: string) => void;
+  createRitual: (item: CreatedItem<Ritual>, source?: string) => void;
+  createBudget: (item: CreatedItem<Budget>, source?: string) => void;
   createWorkspace: (item: CreatedItem<Workspace>, source?: string) => void;
   /**
    * Seed/demo workspaces'i (mock-data'dan gelen) siler — sadece Ferhan'ın
@@ -102,6 +112,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   createdWorkflows: [],
   createdDepartments: [],
   createdGoals: [],
+  createdOperatorTasks: [],
+  createdRituals: [],
+  createdBudgets: [],
   acceptedSuggestionSources: [],
   dopamineEvents: [],
   setWorkspace: (id) => set({ currentWorkspaceId: id }),
@@ -222,6 +235,48 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       meta: { goalTitle: item.entity.title },
     });
   },
+  createOperatorTask: (item, source) => {
+    set((s) => ({
+      createdOperatorTasks: [...s.createdOperatorTasks, item],
+      acceptedSuggestionSources: source
+        ? [...s.acceptedSuggestionSources, source]
+        : s.acceptedSuggestionSources,
+    }));
+    get().recordAction("task.created", {
+      workspaceId: item.entity.workspaceId,
+      silent: source?.startsWith("oracle-onboarding:") ?? false,
+      meta: { taskTitle: item.entity.title },
+    });
+  },
+  createRitual: (item, source) => {
+    set((s) => ({
+      createdRituals: [...s.createdRituals, item],
+      acceptedSuggestionSources: source
+        ? [...s.acceptedSuggestionSources, source]
+        : s.acceptedSuggestionSources,
+    }));
+    // Ritual'lar agent.invoked değil — kendi event'i yok, mikro XP olarak
+    // workflow.created ile aynı pattern'i kullan
+    get().recordAction("workflow.created", {
+      workspaceId: item.entity.workspaceId,
+      silent: true, // ritual genelde batch onboarding'te
+      meta: { ritualLabel: item.entity.label },
+    });
+  },
+  createBudget: (item, source) => {
+    set((s) => ({
+      createdBudgets: [...s.createdBudgets, item],
+      acceptedSuggestionSources: source
+        ? [...s.acceptedSuggestionSources, source]
+        : s.acceptedSuggestionSources,
+    }));
+    // Budget'lar oracle.suggestion.accepted gibi sayılır
+    get().recordAction("oracle.suggestion.accepted", {
+      workspaceId: item.entity.workspaceId,
+      silent: source?.startsWith("oracle-onboarding:") ?? false,
+      meta: { budgetLabel: item.entity.scopeLabel },
+    });
+  },
   createWorkspace: (item, source) => {
     set((s) => ({
       workspaces: [...s.workspaces, item.entity],
@@ -263,6 +318,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         createdWorkflows: keep(s.createdWorkflows),
         createdDepartments: keep(s.createdDepartments),
         createdGoals: keep(s.createdGoals),
+        createdOperatorTasks: keep(s.createdOperatorTasks),
+        createdRituals: keep(s.createdRituals),
+        createdBudgets: keep(s.createdBudgets),
         dopamineEvents: keptEvents,
       };
     }),

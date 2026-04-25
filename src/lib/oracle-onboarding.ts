@@ -91,6 +91,62 @@ export interface ProposedMilestone {
   status: "pending";
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// Dashboard coverage — Goals, Budgets, Rituals, Quick Wins
+// ───────────────────────────────────────────────────────────────────────────
+
+export interface ProposedGoal {
+  /** Tek cümle başlık ("$5K MRR · 6 ayda") */
+  title: string;
+  /** Lead/lag tag'i — "lag" çıkış metriği, "lead" üretim metriği */
+  kind: "lag" | "lead";
+  metric: string; // "MRR", "weekly leads", "newsletter subs"
+  unit: string; // "$", "#", "%"
+  target: number;
+  /** Şu anki değer (yeni workspace için 0) */
+  current: number;
+  /** Lower-is-better metrikler (churn, burn, error-rate) */
+  invert?: boolean;
+  cadence: "weekly" | "monthly" | "quarterly";
+  /** Trajectory başlangıç değeri */
+  trajectory: "ahead" | "on-track" | "at-risk" | "off-track";
+}
+
+export interface ProposedBudget {
+  /** "Claude API · Sonnet" gibi okunaklı isim */
+  label: string;
+  /** Aylık dolar bütçesi */
+  monthlyUsd: number;
+  /** Aylık ortalama tahminden büyükse "kill switch" tetikler */
+  hardCapUsd: number;
+  category: "llm" | "infra" | "marketing" | "tools" | "physical";
+}
+
+/** Prime Program'ın Daily/Weekly Ritual blokları */
+export interface ProposedRitual {
+  label: string; // "Pazartesi 09:30 · L10 Meeting"
+  cadence: "daily" | "weekly" | "biweekly" | "monthly";
+  /** ISO 8601 day-of-week (1=Mon … 7=Sun); cadence weekly+ için */
+  dayOfWeek?: number;
+  /** "HH:MM" 24h format */
+  timeOfDay?: string;
+  /** Toplam blok süresi (dakika) */
+  durationMinutes: number;
+  description: string;
+}
+
+/**
+ * İlk 24 saatte tamamlanabilen ultra-kolay görev. Dopamine engine'in
+ * "first hit" stratejisi — momentum doğsun diye 5-10dk'lık şeyler.
+ */
+export interface ProposedQuickWin {
+  title: string;
+  description: string;
+  estimatedMinutes: number;
+  /** Hangi modülde tamamlanacak — UI hint */
+  realmHint: "vision" | "goals" | "operator" | "library" | "control";
+}
+
 export interface OracleProposal {
   /** Oracle'ın tek-paragraf açıklaması */
   narrative: string;
@@ -104,6 +160,16 @@ export interface OracleProposal {
   workflows: ProposedWorkflow[];
   physicalTasks: ProposedPhysicalTask[];
   milestones: ProposedMilestone[];
+  /** Goals & Orbits modülüne dolacak OKR'lar (rule-based default'lar
+   *  enrichWithDashboardCoverage tarafından doldurulur — template
+   *  generator'lar boş bırakabilir) */
+  goals?: ProposedGoal[];
+  /** Costs modülüne dolacak bütçe satırları */
+  budgets?: ProposedBudget[];
+  /** Prime Program'a dolacak haftalık/günlük ritüeller */
+  rituals?: ProposedRitual[];
+  /** İlk 24 saatte momentum yaratan ultra-kolay quick win'ler */
+  quickWins?: ProposedQuickWin[];
   /** Bu proposal üretim modu */
   mode: "rule-based" | "claude-enhanced";
 }
@@ -117,35 +183,380 @@ export function generateProposal(
   answers: InterviewAnswers
 ): OracleProposal {
   // Template tipine göre uygun generator'ı çağır
+  let base: OracleProposal;
   switch (template.type) {
     case "saas":
     case "micro-saas":
-      return generateSaasProposal(template, answers);
+      base = generateSaasProposal(template, answers);
+      break;
     case "newsletter":
     case "podcast":
-      return generateContentProposal(template, answers);
+      base = generateContentProposal(template, answers);
+      break;
     case "youtube":
-      return generateYouTubeProposal(template, answers);
+      base = generateYouTubeProposal(template, answers);
+      break;
     case "course":
-      return generateCourseProposal(template, answers);
+      base = generateCourseProposal(template, answers);
+      break;
     case "ecommerce":
-      return generateEcommerceProposal(template, answers);
+      base = generateEcommerceProposal(template, answers);
+      break;
     case "affiliate":
-      return generateAffiliateProposal(template, answers);
+      base = generateAffiliateProposal(template, answers);
+      break;
     case "digital-product":
-      return generateDigitalProductProposal(template, answers);
+      base = generateDigitalProductProposal(template, answers);
+      break;
     case "agency":
-      return generateAgencyProposal(template, answers);
+      base = generateAgencyProposal(template, answers);
+      break;
     case "community":
-      return generateCommunityProposal(template, answers);
+      base = generateCommunityProposal(template, answers);
+      break;
     case "mobile-app":
     case "chrome-extension":
-      return generateSaasProposal(template, answers); // similar pattern
+      base = generateSaasProposal(template, answers);
+      break;
     case "job-board":
-      return generateAffiliateProposal(template, answers); // similar two-sided pattern
+      base = generateAffiliateProposal(template, answers);
+      break;
     default:
-      return generateGenericProposal(template, answers);
+      base = generateGenericProposal(template, answers);
+      break;
   }
+
+  // Dashboard coverage — template-specific generator'lar henüz goals/budgets/
+  // rituals/quickWins üretmiyorsa, default'ları doldur. Template-specific
+  // generator'lar mevcut alanları doldurursa override etmiyoruz.
+  return enrichWithDashboardCoverage(base, template, answers);
+}
+
+/**
+ * Dashboard coverage enrichment — proposal'da eksik kalan goals/budgets/
+ * rituals/quickWins alanlarını interview cevaplarından türetir. Bu sayede
+ * onboarding'ten sonra Goals & Orbits, Costs, Prime Program ve The Operator
+ * dashboard'ları SIFIRDAN dolu gelir, kullanıcı boş ekrana bakmaz.
+ */
+function enrichWithDashboardCoverage(
+  base: OracleProposal,
+  template: AssetTemplate,
+  answers: InterviewAnswers
+): OracleProposal {
+  return {
+    ...base,
+    goals: base.goals && base.goals.length > 0 ? base.goals : defaultGoals(template, answers),
+    budgets:
+      base.budgets && base.budgets.length > 0 ? base.budgets : defaultBudgets(template, answers),
+    rituals:
+      base.rituals && base.rituals.length > 0 ? base.rituals : defaultRituals(template, answers),
+    quickWins:
+      base.quickWins && base.quickWins.length > 0
+        ? base.quickWins
+        : defaultQuickWins(template, answers),
+  };
+}
+
+/**
+ * Default goals — interview hedeflerinden 3-5 OKR (1 lag + 2-4 lead).
+ * Lag: para metriği (MRR, monthly revenue). Lead: input metrikleri
+ * (haftalık lead sayısı, conversion rate, content output).
+ */
+function defaultGoals(template: AssetTemplate, answers: InterviewAnswers): ProposedGoal[] {
+  const out: ProposedGoal[] = [];
+
+  // 1. Lag: revenue hedefi (her zaman var)
+  out.push({
+    title: `$${answers.monthlyRevenueTargetUsd.toLocaleString("en-US")} MRR · ${answers.timelineMonths} ayda`,
+    kind: "lag",
+    metric: "Monthly Recurring Revenue",
+    unit: "$",
+    target: answers.monthlyRevenueTargetUsd,
+    current: 0,
+    cadence: "monthly",
+    trajectory: "off-track", // başlangıçta — 0/target
+  });
+
+  // 2. Lead: template-specific input metric
+  const leadMetric = templateLeadMetric(template);
+  if (leadMetric) {
+    out.push(leadMetric);
+  }
+
+  // 3. Lead: weekly throughput (her template için aynı)
+  out.push({
+    title: "Haftalık aksiyon hacmi",
+    kind: "lead",
+    metric: "Completed actions per week",
+    unit: "#",
+    target: Math.max(10, Math.round(answers.weeklyHoursAvailable * 1.5)),
+    current: 0,
+    cadence: "weekly",
+    trajectory: "on-track",
+  });
+
+  // 4. Lag: net margin (revenue - cost) — Source modülü ile uyum
+  out.push({
+    title: "Net margin %",
+    kind: "lag",
+    metric: "Revenue - all costs",
+    unit: "%",
+    target: 60, // healthy digital asset margin
+    current: 0,
+    cadence: "monthly",
+    trajectory: "on-track",
+  });
+
+  return out;
+}
+
+function templateLeadMetric(template: AssetTemplate): ProposedGoal | null {
+  switch (template.type) {
+    case "newsletter":
+    case "podcast":
+      return {
+        title: "Haftalık abone artışı",
+        kind: "lead",
+        metric: "Net new subscribers / week",
+        unit: "#",
+        target: 50,
+        current: 0,
+        cadence: "weekly",
+        trajectory: "on-track",
+      };
+    case "youtube":
+      return {
+        title: "Haftalık izlenme dakikası",
+        kind: "lead",
+        metric: "Watch hours / week",
+        unit: "#",
+        target: 500,
+        current: 0,
+        cadence: "weekly",
+        trajectory: "on-track",
+      };
+    case "saas":
+    case "micro-saas":
+    case "mobile-app":
+    case "chrome-extension":
+      return {
+        title: "Haftalık trial başlatan",
+        kind: "lead",
+        metric: "Trial starts / week",
+        unit: "#",
+        target: 20,
+        current: 0,
+        cadence: "weekly",
+        trajectory: "on-track",
+      };
+    case "ecommerce":
+      return {
+        title: "Haftalık sipariş sayısı",
+        kind: "lead",
+        metric: "Orders / week",
+        unit: "#",
+        target: 30,
+        current: 0,
+        cadence: "weekly",
+        trajectory: "on-track",
+      };
+    case "affiliate":
+    case "job-board":
+      return {
+        title: "Haftalık tıklama",
+        kind: "lead",
+        metric: "Outbound clicks / week",
+        unit: "#",
+        target: 1000,
+        current: 0,
+        cadence: "weekly",
+        trajectory: "on-track",
+      };
+    case "course":
+    case "digital-product":
+      return {
+        title: "Haftalık waitlist kayıt",
+        kind: "lead",
+        metric: "Waitlist signups / week",
+        unit: "#",
+        target: 25,
+        current: 0,
+        cadence: "weekly",
+        trajectory: "on-track",
+      };
+    case "agency":
+      return {
+        title: "Haftalık discovery call",
+        kind: "lead",
+        metric: "Discovery calls / week",
+        unit: "#",
+        target: 5,
+        current: 0,
+        cadence: "weekly",
+        trajectory: "on-track",
+      };
+    case "community":
+      return {
+        title: "Haftalık aktif üye %",
+        kind: "lead",
+        metric: "WAU / total members",
+        unit: "%",
+        target: 30,
+        current: 0,
+        cadence: "weekly",
+        trajectory: "on-track",
+      };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Default budgets — startingCapital'i 12 ay'a böl, kategori başına allocate.
+ * LLM en büyük pay alır (Matrix'in core motoru), sonra infra, marketing,
+ * tools, fiziksel.
+ */
+function defaultBudgets(template: AssetTemplate, answers: InterviewAnswers): ProposedBudget[] {
+  const monthly = Math.max(50, Math.round(answers.startingCapitalUsd / 12));
+  const out: ProposedBudget[] = [];
+
+  // LLM — Matrix'in çekirdeği. ~%40 share. Sonnet primary, Haiku batch.
+  const llmShare = Math.max(20, Math.round(monthly * 0.4));
+  out.push({
+    label: "Claude API · Sonnet primary",
+    monthlyUsd: llmShare,
+    hardCapUsd: Math.round(llmShare * 1.5),
+    category: "llm",
+  });
+
+  // Infra — hosting, db, cdn. Template-specific.
+  const infraShare = template.type === "saas" || template.type === "micro-saas" || template.type === "mobile-app" || template.type === "chrome-extension"
+    ? Math.round(monthly * 0.2)
+    : Math.round(monthly * 0.1);
+  out.push({
+    label: "Hosting + DB + CDN",
+    monthlyUsd: infraShare,
+    hardCapUsd: infraShare * 2,
+    category: "infra",
+  });
+
+  // Marketing — content + ads. Audience-driven template'lerde daha fazla.
+  const marketingShare =
+    template.type === "newsletter" || template.type === "youtube" || template.type === "podcast" || template.type === "course"
+      ? Math.round(monthly * 0.3)
+      : Math.round(monthly * 0.15);
+  out.push({
+    label: "Marketing · ads + sponsorlu içerik",
+    monthlyUsd: marketingShare,
+    hardCapUsd: marketingShare * 2,
+    category: "marketing",
+  });
+
+  // Tools — analytics, scheduling, design (~%15)
+  out.push({
+    label: "Tools · Notion + Linear + Stripe",
+    monthlyUsd: Math.max(15, Math.round(monthly * 0.15)),
+    hardCapUsd: Math.max(30, Math.round(monthly * 0.2)),
+    category: "tools",
+  });
+
+  // Physical (sadece ecommerce/agency/event tarzı için)
+  if (template.type === "ecommerce" || template.type === "agency") {
+    out.push({
+      label: "Fiziksel · kargo + ofis + supplier",
+      monthlyUsd: Math.round(monthly * 0.15),
+      hardCapUsd: Math.round(monthly * 0.25),
+      category: "physical",
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Default rituals — Prime Program'a dolan haftalık/günlük blok'lar.
+ * Her workspace'in 4 temel ritüeli olmalı:
+ *   1. Pazartesi L10 Meeting (90dk)
+ *   2. Cuma Weekly Review (60dk)
+ *   3. Günlük Deep Work block (durationMinutes parametre)
+ *   4. Aylık Strategic Review (Vision check)
+ */
+function defaultRituals(_template: AssetTemplate, answers: InterviewAnswers): ProposedRitual[] {
+  // Günlük deep work — kullanıcının haftalık saatinden / 5 gün
+  const dailyDeep = Math.min(180, Math.max(45, Math.round((answers.weeklyHoursAvailable * 60) / 5)));
+
+  return [
+    {
+      label: "Pazartesi · L10 Meeting (Captain's Log)",
+      cadence: "weekly",
+      dayOfWeek: 1,
+      timeOfDay: "09:30",
+      durationMinutes: 90,
+      description: "EOS L10: Scorecard → Rocks → Headlines → IDS issues. Hafta yön belirler.",
+    },
+    {
+      label: "Cuma · Weekly Review (The Truth)",
+      cadence: "weekly",
+      dayOfWeek: 5,
+      timeOfDay: "16:00",
+      durationMinutes: 60,
+      description: "7 günlük rollup, hedef sapması, Oracle önerileri kabul/red.",
+    },
+    {
+      label: "Günlük Deep Work · Construct'ta yalnız blok",
+      cadence: "daily",
+      timeOfDay: "09:00",
+      durationMinutes: dailyDeep,
+      description: `Telefonsuz, bildirimler kapalı, ${Math.floor(dailyDeep / 60)}sa ${dailyDeep % 60}dk en yüksek leverage'lı işe.`,
+    },
+    {
+      label: "Aylık Strategic Review (Vision check)",
+      cadence: "monthly",
+      dayOfWeek: 1,
+      timeOfDay: "10:00",
+      durationMinutes: 120,
+      description: "Mission/vision/temalar hâlâ doğru mu? Pivot gerekli mi? Asset'lerden çekilmek mi gerek?",
+    },
+  ];
+}
+
+/**
+ * Default quick wins — ilk 24 saatte tamamlanabilen 5 ultra-kolay görev.
+ * Dopamine engine momentum stratejisi: hızlı erken kazanç → bağlanma.
+ */
+function defaultQuickWins(template: AssetTemplate, _answers: InterviewAnswers): ProposedQuickWin[] {
+  return [
+    {
+      title: "Vision sayfasında misyonunu oku, 1 cümle ile özetle",
+      description: "Oracle template'ten misyon çekti — kendi kelimenle yeniden yaz, gerçek hisset.",
+      estimatedMinutes: 5,
+      realmHint: "vision",
+    },
+    {
+      title: "İlk OKR'unun başlangıç değerini gir",
+      description: "Mevcut MRR/abone/satış ne? 0 olsa bile kayıt et — sapma ölçümü buradan başlar.",
+      estimatedMinutes: 3,
+      realmHint: "goals",
+    },
+    {
+      title: `${template.label} için ilk 3 rakibini listele`,
+      description: "The Archive · Library'de bir not aç, 3 rakip + onların kuvvetli/zayıf yönlerini yaz.",
+      estimatedMinutes: 15,
+      realmHint: "library",
+    },
+    {
+      title: "Bir Oracle önerisini ya kabul et ya da reddet",
+      description: "Oracle butonuna bas, gelen önerilerden 1'ini incele — sinyal Oracle'ı eğitir.",
+      estimatedMinutes: 5,
+      realmHint: "control",
+    },
+    {
+      title: "Bugün için ilk fiziksel task'ını ekle",
+      description: "Operator board'a 1 görev ekle (örn. 'Domain al', 'X kişiyle konuş') — momentum doğsun.",
+      estimatedMinutes: 2,
+      realmHint: "operator",
+    },
+  ];
 }
 
 /**

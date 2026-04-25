@@ -147,6 +147,31 @@ export interface OracleSuggestion {
   createdAt: string;
 }
 
+/**
+ * Ritual — Prime Program'da yaşayan tekrar eden iş bloğu (L10 Meeting,
+ * Weekly Review, Daily Deep Work). Workflow'tan farkı: bu insan ritmi,
+ * agent değil. Calendar'a düşer, hatırlatma gönderir.
+ */
+export interface Ritual {
+  id: string;
+  workspaceId: string;
+  label: string;
+  cadence: "daily" | "weekly" | "biweekly" | "monthly";
+  /** ISO 8601 day-of-week (1=Mon … 7=Sun); cadence weekly+ için */
+  dayOfWeek?: number;
+  /** "HH:MM" 24h format */
+  timeOfDay?: string;
+  /** Toplam blok süresi (dakika) */
+  durationMinutes: number;
+  description: string;
+  /** Last execution ISO — gösterimde "son: 3 gün önce" */
+  lastRunAtIso?: string;
+  /** Streak — kaç hafta üst üste yapıldı */
+  streak: number;
+  /** Active mı, geçici olarak duraklatıldı mı? */
+  active: boolean;
+}
+
 export interface ActivityEvent {
   id: string;
   workspaceId: string;

@@ -6,6 +6,7 @@ import { ActivityFeed } from "@/components/deck/ActivityFeed";
 import { GoalOrbits } from "@/components/deck/GoalOrbits";
 import { BlueprintSuggestionBanner } from "@/components/deck/BlueprintSuggestionBanner";
 import { PortfolioRollup } from "@/components/deck/PortfolioRollup";
+import { OracleGuide } from "@/components/oracle/OracleGuide";
 
 export default function CommandDeckPage() {
   return (
@@ -13,6 +14,7 @@ export default function CommandDeckPage() {
       <HeroHeader />
 
       <section className="space-y-6 px-8 py-8">
+        <OracleGuide page="command-deck" />
         <BlueprintSuggestionBanner />
 
         <KpiRow />
