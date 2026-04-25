@@ -2,7 +2,6 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   BarChart3,
-  BookOpenCheck,
   ClipboardList,
   Compass,
   Database,
@@ -15,7 +14,6 @@ import {
   Rocket,
   ScrollText,
   Sparkles,
-  Target,
   Wallet,
   Waypoints,
 } from "lucide-react";
@@ -26,7 +24,14 @@ export interface NavItem {
   subLabel?: string; // technical description — quiet line underneath
   tagline: string; // legacy prop, kept for back-compat (sublabel preferred)
   icon: LucideIcon;
-  group: "bootstrap" | "primary" | "connect" | "ops" | "insight";
+  /**
+   * Sidebar grouping (Sprint A — sidebar consolidation).
+   *   - "pinned"    : top, never collapses (Construct + Oracle)
+   *   - "workspace" : current asset's inner world (default OPEN)
+   *   - "build"     : create/extend modules (default CLOSED)
+   *   - "system"    : settings/system/analytics (default CLOSED)
+   */
+  group: "pinned" | "workspace" | "build" | "system";
   accent?: "ion" | "nebula" | "quantum" | "solar";
 }
 
@@ -34,40 +39,34 @@ export interface NavItem {
 // concept from the trilogy, while keeping the technical description within
 // reach for developers.
 export const navItems: NavItem[] = [
-  {
-    href: "/blueprints",
-    label: "The Keymaker",
-    subLabel: "Blueprints · Ideas",
-    tagline: "fikirden uca kurulumuna",
-    icon: Rocket,
-    group: "bootstrap",
-    accent: "solar",
-  },
+  // ─── PINNED — top, always visible, en sık kullanılan 2 modül ────────
   {
     href: "/dashboard",
     label: "The Construct",
     subLabel: "Command Deck",
-    tagline: "bugünün nabzı",
+    tagline: "bugünün nabzı · portföy",
     icon: LayoutGrid,
-    group: "primary",
+    group: "pinned",
     accent: "ion",
   },
+  {
+    href: "/oracle",
+    label: "The Oracle",
+    subLabel: "Suggestions Hub · Cmd+K",
+    tagline: "öneriler · sapmalar · cofounder",
+    icon: Sparkles,
+    group: "pinned",
+    accent: "nebula",
+  },
+
+  // ─── WORKSPACE — bu asset'in iç dünyası (default OPEN) ──────────────
   {
     href: "/vision",
     label: "The Prophecy",
     subLabel: "Vision & Strategy",
     tagline: "şirketin DNA'sı · mission · themes",
     icon: Compass,
-    group: "primary",
-    accent: "nebula",
-  },
-  {
-    href: "/oracle",
-    label: "The Oracle",
-    subLabel: "Suggestions Hub",
-    tagline: "öneriler · gap'ler · sapmalar",
-    icon: Sparkles,
-    group: "primary",
+    group: "workspace",
     accent: "nebula",
   },
   {
@@ -76,60 +75,8 @@ export const navItems: NavItem[] = [
     subLabel: "Org Studio",
     tagline: "organizasyon şeması",
     icon: Network,
-    group: "primary",
+    group: "workspace",
     accent: "ion",
-  },
-  {
-    href: "/library",
-    label: "The Archive",
-    subLabel: "Library",
-    tagline: "skills · agents · workflows",
-    icon: LibraryIcon,
-    group: "primary",
-  },
-  {
-    href: "/workflows",
-    label: "The Loading Program",
-    subLabel: "Workflow Canvas",
-    tagline: "görsel otomasyon",
-    icon: Waypoints,
-    group: "primary",
-  },
-  {
-    href: "/connectors",
-    label: "TrainStation",
-    subLabel: "Connector Hub",
-    tagline: "entegrasyonlar · fiziksel köprüler",
-    icon: Plug,
-    group: "connect",
-    accent: "ion",
-  },
-  {
-    href: "/models",
-    label: "The Source",
-    subLabel: "Model Library",
-    tagline: "her zihnin kökeni",
-    icon: Database,
-    group: "connect",
-    accent: "nebula",
-  },
-  {
-    href: "/spend",
-    label: "The Tribute",
-    subLabel: "Spend & Budget",
-    tagline: "maliyet · bütçe · ROI",
-    icon: Wallet,
-    group: "connect",
-    accent: "solar",
-  },
-  {
-    href: "/traction",
-    label: "Captain's Log",
-    subLabel: "Traction · Goals · EOS",
-    tagline: "rocks · scorecard · L10 · prophecy",
-    icon: ScrollText,
-    group: "ops",
-    accent: "nebula",
   },
   {
     href: "/operator",
@@ -137,7 +84,7 @@ export const navItems: NavItem[] = [
     subLabel: "Task Board",
     tagline: "dijital + fiziksel görevler",
     icon: ClipboardList,
-    group: "ops",
+    group: "workspace",
     accent: "ion",
   },
   {
@@ -146,8 +93,74 @@ export const navItems: NavItem[] = [
     subLabel: "Daily/Weekly Rituals",
     tagline: "L10 · weekly review · deep work",
     icon: Repeat,
-    group: "ops",
+    group: "workspace",
     accent: "nebula",
+  },
+  {
+    href: "/traction",
+    label: "Captain's Log",
+    subLabel: "Traction · Goals · EOS",
+    tagline: "rocks · scorecard · L10 · prophecy",
+    icon: ScrollText,
+    group: "workspace",
+    accent: "nebula",
+  },
+
+  // ─── BUILD — yeniden kullanılabilir parçalar (default CLOSED) ───────
+  {
+    href: "/library",
+    label: "The Archive",
+    subLabel: "Library",
+    tagline: "skills · agents · workflows",
+    icon: LibraryIcon,
+    group: "build",
+  },
+  {
+    href: "/workflows",
+    label: "The Loading Program",
+    subLabel: "Workflow Canvas",
+    tagline: "görsel otomasyon",
+    icon: Waypoints,
+    group: "build",
+    accent: "quantum",
+  },
+  {
+    href: "/blueprints",
+    label: "The Keymaker",
+    subLabel: "Blueprints · Ideas",
+    tagline: "fikirden uca kurulumuna",
+    icon: Rocket,
+    group: "build",
+    accent: "solar",
+  },
+
+  // ─── SYSTEM — bağlantı + maliyet + kontrol + bilgi (default CLOSED) ──
+  {
+    href: "/connectors",
+    label: "TrainStation",
+    subLabel: "Connector Hub",
+    tagline: "entegrasyonlar · fiziksel köprüler",
+    icon: Plug,
+    group: "system",
+    accent: "ion",
+  },
+  {
+    href: "/models",
+    label: "The Source",
+    subLabel: "Model Library",
+    tagline: "her zihnin kökeni",
+    icon: Database,
+    group: "system",
+    accent: "nebula",
+  },
+  {
+    href: "/spend",
+    label: "The Tribute",
+    subLabel: "Spend & Budget",
+    tagline: "maliyet · bütçe · ROI",
+    icon: Wallet,
+    group: "system",
+    accent: "solar",
   },
   {
     href: "/control",
@@ -155,7 +168,7 @@ export const navItems: NavItem[] = [
     subLabel: "Control Room",
     tagline: "canlı operasyon",
     icon: Activity,
-    group: "ops",
+    group: "system",
     accent: "solar",
   },
   {
@@ -164,7 +177,7 @@ export const navItems: NavItem[] = [
     subLabel: "Insights",
     tagline: "kaldıraç & retro",
     icon: BarChart3,
-    group: "insight",
+    group: "system",
   },
   {
     href: "/codex",
@@ -172,7 +185,7 @@ export const navItems: NavItem[] = [
     subLabel: "User Guide · Manual",
     tagline: "her modülün ne · niçin · nasıl",
     icon: HelpCircle,
-    group: "insight",
+    group: "system",
     accent: "nebula",
   },
 ];
