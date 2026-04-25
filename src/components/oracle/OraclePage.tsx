@@ -53,6 +53,7 @@ export function OraclePage() {
   const [scanTick, setScanTick] = useState(0);
 
   const suggestions = useMemo(() => {
+    if (!ws) return [];
     // re-run on scanTick to let "rescan" feel fresh
     void scanTick;
     return scanWorkspace({
@@ -193,6 +194,14 @@ export function OraclePage() {
     setAccepted((prev) => new Set(prev).add(s.source));
     setTimeout(() => setToast(null), 3500);
   };
+
+  if (!ws) {
+    return (
+      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center text-text-muted">
+        Workspace yok — sol üstten ekle.
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col">
