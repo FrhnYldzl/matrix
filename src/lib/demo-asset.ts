@@ -1,24 +1,18 @@
 "use client";
 
 /**
- * Demo Asset Seeder — tek fonksiyonla Newsletter workspace'i + Oracle
- * proposal'ın tüm 30+ entity'sini store'a yazar.
+ * Asset Seeder — kullanıcı cevaplarına göre veya hazır demo şablonuyla
+ * tek fonksiyonla 30+ entity'lik bir asset yaratır.
  *
- * Amaç: Yeni kullanıcı 6 soruluk interview'a takılmadan, MATRIX_FLOW'un
- * 13 adımını uçtan uca dolaşıp ürünü deneyimleyebilsin. WorkspaceSwitcher'da
- * "Demo asset yükle" butonuyla tetiklenir.
- *
- * Yarattığı şey:
- *   - Workspace: "AI Matrix Newsletter · DEMO"
- *   - 4 dept · 4 agent · 5 skill · 3 workflow (Oracle proposal'dan)
- *   - 4 OKR (Goals & Orbits)
- *   - 4 ritual (Prime Program)
- *   - 4-5 budget (The Tribute)
- *   - 5 quick-win + 5 physical task (Operator)
+ * İki ana giriş noktası:
+ *   1. seedAssetFromAnswers(store, answers) — Conversational onboarding'ten
+ *      gelen cevaplarla DİNAMİK asset
+ *   2. seedDemoNewsletterAsset(store) — varsayılan Newsletter demo (legacy
+ *      "Demo asset yükle" butonu için)
  */
 
-import { generateProposal } from "./oracle-onboarding";
-import { ASSET_TEMPLATES } from "./asset-templates";
+import { generateProposal, type InterviewAnswers } from "./oracle-onboarding";
+import { ASSET_TEMPLATES, type AssetTemplate } from "./asset-templates";
 import type {
   Agent,
   Department,
@@ -34,66 +28,104 @@ import type { useWorkspaceStore } from "./store";
 
 type StoreApi = ReturnType<typeof useWorkspaceStore.getState>;
 
-const DEMO_ANSWERS = {
-  monthlyRevenueTargetUsd: 5000,
-  timelineMonths: 6,
-  niche: "AI tools & Matrix universe haberleri",
-  weeklyHoursAvailable: 10,
-  startingCapitalUsd: 500,
-  uniqueAngle: "Günlük 5 dakikada AI dünyasının özeti — Morpheus tonunda",
-};
-
 const rand = () => Math.random().toString(36).slice(2, 6);
 
-/**
- * Tüm asset'i tek seferde seed et. Caller store action'larına direkt erişir
- * (storeApi). Hangi workspace yaratıldıysa onun id'sini döner.
- */
-export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string } | null {
-  const newsletterTemplate = ASSET_TEMPLATES.find((t) => t.type === "newsletter");
-  if (!newsletterTemplate) return null;
+// ───────────────────────────────────────────────────────────────────────────
+// Conversational Onboarding answers (Oracle chat'ten gelir)
+// ───────────────────────────────────────────────────────────────────────────
+
+export interface OnboardingAnswers {
+  /** Hangi asset türü — Newsletter / SaaS / E-commerce / Course / Affiliate / Custom */
+  templateType: AssetTemplate["type"];
+  /** Workspace adı — kullanıcının verdiği veya otomatik üretilen */
+  workspaceName: string;
+  /** Niş — "AI tools haberleri" gibi kısa metin */
+  niche: string;
+  /** Aylık gelir hedefi (USD) */
+  monthlyRevenueTargetUsd: number;
+  /** Hedefe kaç ayda ulaşma — varsayılan 6 */
+  timelineMonths?: number;
+  /** Haftalık saat bütçesi */
+  weeklyHoursAvailable: number;
+  /** Başlangıç sermayesi USD */
+  startingCapitalUsd: number;
+  /** Unique angle — "günlük 5dk briefing" gibi */
+  uniqueAngle?: string;
+  /** ID prefix — "ws-demo-" demo asset için, "ws-" gerçek için */
+  isDemo?: boolean;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Ana seeder — conversational answers'a göre asset yarat
+// ───────────────────────────────────────────────────────────────────────────
+
+export function seedAssetFromAnswers(
+  store: StoreApi,
+  answers: OnboardingAnswers
+): { workspaceId: string } | null {
+  const template = ASSET_TEMPLATES.find((t) => t.type === answers.templateType);
+  if (!template) return null;
+
+  // Workspace ID prefix — demo veya gerçek
+  const idPrefix = answers.isDemo ? "ws-demo-" : "ws-";
+  const slug = answers.workspaceName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 30);
+  const wsId = `${idPrefix}${slug || "asset"}-${Date.now().toString(36)}`;
+
+  // Short name — workspace adından 2-3 harf otomatik
+  const shortName = (() => {
+    const parts = answers.workspaceName.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return answers.workspaceName.trim().slice(0, 2).toUpperCase() || "AS";
+  })();
 
   // 1. Workspace yarat
-  const wsId = `ws-demo-newsletter-${Date.now().toString(36)}`;
   const workspace: Workspace = {
     id: wsId,
-    name: "AI Matrix Newsletter · DEMO",
-    shortName: "AM",
-    industry: newsletterTemplate.defaultIndustry,
-    mission: newsletterTemplate.mission,
-    vision: newsletterTemplate.vision,
-    strategicThemes: newsletterTemplate.themes.map((t, i) => ({
-      id: `st-demo-${i}`,
+    name: answers.workspaceName,
+    shortName,
+    industry: template.defaultIndustry,
+    mission: template.mission,
+    vision: template.vision,
+    strategicThemes: template.themes.map((t, i) => ({
+      id: `st-${slug}-${i}`,
       label: t.label,
       description: t.description,
       weight: t.weight,
     })),
     valueAnchors: [
       {
-        id: "va-demo-1",
+        id: `va-${slug}-1`,
         label: "İnsan son kararı verir",
         description: "External-send scope'u her zaman onay gerektirir.",
       },
-      {
-        id: "va-demo-2",
-        label: "Editör disiplini ödün vermez",
-        description: "Hiçbir AI draft direkt yayınlanmaz — insan polish şart.",
-      },
     ],
-    accent: "nebula",
+    accent: template.accent,
     createdAt: new Date().toISOString(),
   };
 
   store.createWorkspace(
     { entity: workspace, origin: "manual", createdAt: workspace.createdAt },
-    "demo-asset:newsletter"
+    answers.isDemo ? "demo-asset:auto" : "onboarding:conversational"
   );
   store.setWorkspace(wsId);
 
-  // 2. Oracle proposal üret
-  const proposal = generateProposal(newsletterTemplate, DEMO_ANSWERS);
+  // 2. Oracle proposal — dynamic answer'larla üret
+  const interviewAnswers: InterviewAnswers = {
+    monthlyRevenueTargetUsd: answers.monthlyRevenueTargetUsd,
+    timelineMonths: answers.timelineMonths ?? 6,
+    niche: answers.niche,
+    weeklyHoursAvailable: answers.weeklyHoursAvailable,
+    startingCapitalUsd: answers.startingCapitalUsd,
+    uniqueAngle: answers.uniqueAngle,
+  };
+  const proposal = generateProposal(template, interviewAnswers);
 
-  // 3. ID maplerini önceden hesapla (acceptProposal'daki aynı pattern)
+  // 3. ID maps
   const deptNameToId: Record<string, string> = {};
   proposal.departments.forEach((d) => {
     deptNameToId[d.name] = `dept-${wsId}-${d.name}-${rand()}`;
@@ -119,9 +151,11 @@ export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string 
   });
 
   const nowIso = new Date().toISOString();
-  const sourceTag = `demo-asset:${wsId}`;
+  const sourceTag = answers.isDemo ? `demo-asset:${wsId}` : `onboarding:${wsId}`;
 
-  // 4. Departments
+  // 4-12. Tüm entity'leri yaz (önceki seedDemoNewsletterAsset ile aynı pattern)
+
+  // Departments
   proposal.departments.forEach((d) => {
     const dept: Department = {
       id: deptNameToId[d.name],
@@ -134,7 +168,7 @@ export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string 
     store.createDepartment({ entity: dept, origin: "oracle", createdAt: nowIso }, sourceTag);
   });
 
-  // 5. Agents (real skillIds + departmentId)
+  // Agents
   proposal.agents.forEach((a) => {
     const realSkillIds = a.skillNames
       .map((n) => skillNameToId[n])
@@ -156,7 +190,7 @@ export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string 
     store.createAgent({ entity: agent, origin: "oracle", createdAt: nowIso }, sourceTag);
   });
 
-  // 6. Skills (real ownerAgentId)
+  // Skills
   proposal.skills.forEach((s) => {
     const skill: Skill = {
       id: skillNameToId[s.name],
@@ -172,7 +206,7 @@ export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string 
     store.createSkill({ entity: skill, origin: "oracle", createdAt: nowIso }, sourceTag);
   });
 
-  // 7. Workflows
+  // Workflows
   const firstDeptId = Object.values(deptNameToId)[0] ?? "";
   proposal.workflows.forEach((w) => {
     const workflow: Workflow = {
@@ -189,7 +223,7 @@ export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string 
     store.createWorkflow({ entity: workflow, origin: "oracle", createdAt: nowIso }, sourceTag);
   });
 
-  // 8. Goals
+  // Goals
   (proposal.goals ?? []).forEach((g, i) => {
     const goal: Goal = {
       id: `goal-${wsId}-${i}-${rand()}`,
@@ -209,7 +243,7 @@ export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string 
     store.createGoal({ entity: goal, origin: "oracle", createdAt: nowIso }, sourceTag);
   });
 
-  // 9. Physical tasks
+  // Physical tasks
   proposal.physicalTasks.forEach((t) => {
     const dueIso = new Date(Date.now() + t.dueInDays * 86400000).toISOString();
     const task: Task = {
@@ -222,7 +256,7 @@ export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string 
       priority: t.priority,
       ownerName: "Ferhan Y.",
       ownerKind: "human",
-      tags: ["onboarding", "physical", "demo"],
+      tags: ["onboarding", "physical"],
       createdAtIso: nowIso,
       dueAtIso: dueIso,
       source: "oracle",
@@ -231,7 +265,7 @@ export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string 
     store.createOperatorTask({ entity: task, origin: "oracle", createdAt: nowIso }, sourceTag);
   });
 
-  // 10. Quick wins
+  // Quick wins
   (proposal.quickWins ?? []).forEach((qw, i) => {
     const task: Task = {
       id: `tsk-qw-${wsId}-${i}-${rand()}`,
@@ -243,7 +277,7 @@ export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string 
       priority: "p1",
       ownerName: "Ferhan Y.",
       ownerKind: "human",
-      tags: ["quick-win", `realm:${qw.realmHint}`, "demo"],
+      tags: ["quick-win", `realm:${qw.realmHint}`],
       createdAtIso: nowIso,
       dueAtIso: new Date(Date.now() + 24 * 3600000).toISOString(),
       source: "oracle",
@@ -252,7 +286,7 @@ export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string 
     store.createOperatorTask({ entity: task, origin: "oracle", createdAt: nowIso }, sourceTag);
   });
 
-  // 11. Rituals
+  // Rituals
   (proposal.rituals ?? []).forEach((r, i) => {
     const ritual: Ritual = {
       id: `rit-${wsId}-${i}-${rand()}`,
@@ -269,7 +303,7 @@ export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string 
     store.createRitual({ entity: ritual, origin: "oracle", createdAt: nowIso }, sourceTag);
   });
 
-  // 12. Budgets
+  // Budgets
   (proposal.budgets ?? []).forEach((b, i) => {
     const budget: Budget = {
       id: `bdg-${wsId}-${i}-${rand()}`,
@@ -285,19 +319,19 @@ export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string 
     store.createBudget({ entity: budget, origin: "oracle", createdAt: nowIso }, sourceTag);
   });
 
-  // 13. 2 connector pre-attached (Claude + Gmail — Newsletter için defaults)
-  // Bu sayede MATRIX_FLOW Step 4 (TrainStation) zaten kısmen dolu görünür.
-  // Beehiiv/Substack TrainStation'da "Scout" panelinden kullanıcı tarafından
-  // sonradan keşfedilip eklenir (eğitsel değer var).
+  // Default connector attaches — Claude her zaman, template-spec ek
   store.attachConnector("c-claude", wsId);
-  store.attachConnector("c-gmail", wsId);
+  if (template.type === "newsletter" || template.type === "podcast") {
+    store.attachConnector("c-gmail", wsId);
+  }
 
-  // 14. Final macro celebration
+  // Macro celebration
   store.recordAction("workspace.onboarded", {
     workspaceId: wsId,
     forceBonus: true,
     meta: {
-      mode: "demo",
+      mode: answers.isDemo ? "demo" : "conversational",
+      template: answers.templateType,
       departments: proposal.departments.length,
       agents: proposal.agents.length,
       skills: proposal.skills.length,
@@ -306,4 +340,25 @@ export function seedDemoNewsletterAsset(store: StoreApi): { workspaceId: string 
   });
 
   return { workspaceId: wsId };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Legacy demo — sabit Newsletter cevaplarıyla çağırır
+// (WorkspaceSwitcher'daki "Demo asset yükle" butonu için backward compat)
+// ───────────────────────────────────────────────────────────────────────────
+
+export function seedDemoNewsletterAsset(
+  store: StoreApi
+): { workspaceId: string } | null {
+  return seedAssetFromAnswers(store, {
+    templateType: "newsletter",
+    workspaceName: "AI Matrix Newsletter · DEMO",
+    niche: "AI tools & Matrix universe haberleri",
+    monthlyRevenueTargetUsd: 5000,
+    timelineMonths: 6,
+    weeklyHoursAvailable: 10,
+    startingCapitalUsd: 500,
+    uniqueAngle: "Günlük 5 dakikada AI dünyasının özeti — Morpheus tonunda",
+    isDemo: true,
+  });
 }

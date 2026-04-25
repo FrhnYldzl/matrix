@@ -9,9 +9,16 @@ import { ToastViewport } from "../ui/ToastViewport";
 
 /**
  * Paths that render their own full-bleed layout (no sidebar/topbar).
- * Login, system error pages, deploy page, public landing page.
+ * Login, system error pages, deploy page, public landing page,
+ * conversational onboarding.
  */
-const BARE_PATHS = ["/login", "/system/rate-limited", "/system/approval-pending", "/system/deploy"];
+const BARE_PATHS = [
+  "/login",
+  "/onboarding",
+  "/system/rate-limited",
+  "/system/approval-pending",
+  "/system/deploy",
+];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();

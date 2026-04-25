@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import { workspaces as seedWorkspaces } from "./mock-data";
 import type {
   Agent,
@@ -119,12 +120,10 @@ interface WorkspaceState {
   removeValueAnchor: (workspaceId: string, anchorId: string) => void;
 }
 
-export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
+export const useWorkspaceStore = create<WorkspaceState>()(persist((set, get) => ({
   // Public landing + auth tasarımı: kullanıcı login eder, BOŞ portföy görür.
   // Mock seed workspaces artık otomatik yüklenmez — kullanıcı kendi
-  // yarattığını veya "Demo asset yükle" butonuyla seed Newsletter'ı görür.
-  // Seed mock-data hâlâ duruyor (Codex örnekleri için referans), sadece
-  // store init'te kullanılmıyor.
+  // yarattığını veya conversational onboarding'le yaratır.
   currentWorkspaceId: "",
   workspaces: [],
   killSwitchArmed: false,
@@ -583,4 +582,39 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           : w
       ),
     })),
+}), {
+  name: "matrix-os-state-v1",
+  // localStorage. Her partner kendi tarayıcısında yaşar.
+  // Postgres backend ileride eklenecek (multi-device sync için).
+  storage: createJSONStorage(() => {
+    if (typeof window === "undefined") {
+      // SSR fallback — no-op storage
+      return { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+    }
+    return window.localStorage;
+  }),
+  // Set serialization — Set localStorage'a yazılırken array'e dönüşmeli
+  partialize: (s) => ({
+    currentWorkspaceId: s.currentWorkspaceId,
+    workspaces: s.workspaces,
+    killSwitchArmed: s.killSwitchArmed,
+    dismissedApprovals: Array.from(s.dismissedApprovals),
+    createdSkills: s.createdSkills,
+    createdAgents: s.createdAgents,
+    createdWorkflows: s.createdWorkflows,
+    createdDepartments: s.createdDepartments,
+    createdGoals: s.createdGoals,
+    createdOperatorTasks: s.createdOperatorTasks,
+    createdRituals: s.createdRituals,
+    createdBudgets: s.createdBudgets,
+    attachedConnectors: s.attachedConnectors,
+    acceptedSuggestionSources: s.acceptedSuggestionSources,
+    dopamineEvents: s.dopamineEvents,
+  }),
+  // Storage'tan okurken Array → Set'e geri dönüşüm
+  onRehydrateStorage: () => (state) => {
+    if (state && Array.isArray(state.dismissedApprovals)) {
+      state.dismissedApprovals = new Set(state.dismissedApprovals);
+    }
+  },
 }));

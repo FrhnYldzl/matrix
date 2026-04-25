@@ -1,3 +1,8 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useWorkspaceStore } from "@/lib/store";
 import { HeroHeader } from "@/components/deck/HeroHeader";
 import { KpiRow } from "@/components/deck/KpiRow";
 import { Constellation } from "@/components/deck/Constellation";
@@ -11,10 +16,35 @@ import { OracleGuide } from "@/components/oracle/OracleGuide";
 /**
  * /dashboard — The Construct (Command Deck)
  *
- * Login sonrası landing route. Önceden /'da yaşıyordu, /' artık public
- * landing page olduğu için buraya taşındı. Auth gerekli (middleware).
+ * Login sonrası landing route. Empty portföyü olan first-time user'lar
+ * otomatik /onboarding'e yönlendirilir — Oracle conversational onboarding.
  */
 export default function DashboardPage() {
+  const router = useRouter();
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+
+  // First-time user redirect — workspace yoksa Oracle conversation'a yolla.
+  // useEffect ile (hydration'dan sonra çalışır, server-side mismatch yok).
+  useEffect(() => {
+    if (workspaces.length === 0) {
+      router.replace("/onboarding");
+    }
+  }, [workspaces.length, router]);
+
+  // Empty state — redirect olana kadar fallback (kısa süre)
+  if (workspaces.length === 0) {
+    return (
+      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center">
+        <div className="text-center text-text-muted">
+          <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-nebula">
+            Oracle yükleniyor…
+          </div>
+          <div className="mt-2 text-sm">İlk kurulum için yönlendiriliyorsun.</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col">
       <HeroHeader />
