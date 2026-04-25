@@ -17,7 +17,7 @@ export function LoginForm() {
   const [state, setState] = useState<
     | { kind: "idle" }
     | { kind: "loading" }
-    | { kind: "sent"; channel: "resend" | "console" }
+    | { kind: "sent"; channel: "resend" | "console"; devMagicUrl?: string }
     | { kind: "error"; message: string }
   >({ kind: "idle" });
 
@@ -36,7 +36,11 @@ export function LoginForm() {
         setState({ kind: "error", message: data.error || "Bir sorun oluştu" });
         return;
       }
-      setState({ kind: "sent", channel: data.channel });
+      setState({
+        kind: "sent",
+        channel: data.channel,
+        devMagicUrl: data.devMagicUrl,
+      });
     } catch {
       setState({ kind: "error", message: "Ağ hatası — tekrar dene" });
     }
@@ -65,7 +69,11 @@ export function LoginForm() {
           </div>
 
           {state.kind === "sent" ? (
-            <SuccessView channel={state.channel} email={email} />
+            <SuccessView
+              channel={state.channel}
+              email={email}
+              devMagicUrl={state.devMagicUrl}
+            />
           ) : (
             <form onSubmit={submit} className="mt-6 space-y-4">
               <div>
@@ -132,38 +140,47 @@ export function LoginForm() {
 function SuccessView({
   channel,
   email,
+  devMagicUrl,
 }: {
   channel: "resend" | "console";
   email: string;
+  devMagicUrl?: string;
 }) {
   return (
     <div className="mt-6 space-y-4">
       <div className="flex items-start gap-3 rounded-lg border border-quantum/30 bg-quantum-soft/15 p-4">
         <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-quantum" />
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-text">
             {channel === "resend"
               ? "E-postanı kontrol et"
-              : "Link server log'unda"}
+              : "Dev mode · link aşağıda"}
           </div>
           <p className="mt-1 text-[12px] leading-relaxed text-text-muted">
             {channel === "resend" ? (
               <>
                 <span className="text-text">{email}</span> adresine 15 dakikalık
-                sign-in link'i gönderdim. Spam klasörünü de kontrol et.
+                sign-in link&apos;i gönderdim. Spam klasörünü de kontrol et.
               </>
             ) : (
               <>
-                RESEND_API_KEY env'de yok — link Railway server log'una yazıldı.
-                Railway Dashboard → Deployments → latest → Logs bölümünden kopyala.
-                <span className="mt-1 block font-mono text-[10px] text-text-faint">
-                  "[matrix/auth] MAGIC LINK …" satırını ara.
-                </span>
+                RESEND_API_KEY env&apos;de yok — link gönderilmedi. 15 dk
+                geçerli sign-in URL&apos;in aşağıda. Tıkla ve gir.
               </>
             )}
           </p>
         </div>
       </div>
+
+      {/* Dev mode: magic URL'i direkt göster */}
+      {channel === "console" && devMagicUrl && (
+        <a
+          href={devMagicUrl}
+          className="block rounded-lg border border-ion/40 bg-ion-soft/30 px-4 py-3 text-center text-sm font-medium text-ion transition-all hover:bg-ion/20 hover:scale-[1.01]"
+        >
+          → Matrix&apos;e gir (15 dk geçerli)
+        </a>
+      )}
     </div>
   );
 }

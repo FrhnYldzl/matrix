@@ -59,9 +59,14 @@ export async function POST(req: Request) {
       magicUrl,
     });
 
+    // RESEND_API_KEY yoksa magic URL'i direkt response'da döndür — kullanıcı
+    // login form'da göreceği link'e tıklayıp girer. Bu bypass DEĞİL: email
+    // hâlâ allowlist'te olmalı, token yine 15 dk'da expire olur.
+    // Production'da RESEND_API_KEY ekleyince bu URL response'da gelmez.
     return NextResponse.json({
       ok: true,
       channel: result.channel,
+      ...(result.channel === "console" && { devMagicUrl: magicUrl }),
     });
   } catch (e) {
     console.error("[api/auth/magic-link] failed:", e);
