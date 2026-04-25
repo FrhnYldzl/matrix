@@ -44,7 +44,7 @@ export const navItems: NavItem[] = [
     accent: "solar",
   },
   {
-    href: "/",
+    href: "/dashboard",
     label: "The Construct",
     subLabel: "Command Deck",
     tagline: "bugünün nabzı",

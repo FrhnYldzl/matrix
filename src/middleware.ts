@@ -17,6 +17,8 @@ import { SESSION_COOKIE_NAME, verifyToken } from "@/lib/auth";
  */
 
 const PUBLIC_PATHS = [
+  "/", // public landing — herkes görebilir, login gerekmez
+  "/codex", // The Codex de public — eğitsel, marketing için açık
   "/login",
   "/api/auth/magic-link",
   "/api/auth/verify",

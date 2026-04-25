@@ -39,7 +39,9 @@ export async function GET(req: Request) {
     purpose: "session",
   });
 
-  const next = url.searchParams.get("next") || "/";
+  // Login başarılı → app'in içine (Command Deck) götür. Public landing "/"'e
+  // değil — kullanıcı zaten içeride, çalışmaya başlasın.
+  const next = url.searchParams.get("next") || "/dashboard";
   const redirectUrl = new URL(next, url.origin);
 
   const res = NextResponse.redirect(redirectUrl);

@@ -9,13 +9,16 @@ import { ToastViewport } from "../ui/ToastViewport";
 
 /**
  * Paths that render their own full-bleed layout (no sidebar/topbar).
- * Login, system error pages, deploy page etc.
+ * Login, system error pages, deploy page, public landing page.
  */
 const BARE_PATHS = ["/login", "/system/rate-limited", "/system/approval-pending", "/system/deploy"];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const bare = BARE_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  // "/" public landing — kendi tam ekran layout'u, sidebar yok
+  // (BARE_PATHS prefix-match ile "/" ekleyemiyoruz çünkü tüm app'i kapsar)
+  const isLanding = pathname === "/";
+  const bare = isLanding || BARE_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 
   if (bare) {
     return (

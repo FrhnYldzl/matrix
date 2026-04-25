@@ -293,8 +293,8 @@ function computeNextAction(ctx: GuideContext): NextAction | null {
         return {
           prompt: "Bu workspace için OKR yok. Oracle interview cevaplarından 4 hedef hazır.",
           why: "OKR yoksa Goals & Orbits sayfası boş, sapma tespit edilemiyor.",
-          cta: "Onboarding'i tekrar aç",
-          href: "/",
+          cta: "Dashboard'a git",
+          href: "/dashboard",
           tone: "quantum",
           estMinutes: 2,
         };
@@ -328,8 +328,8 @@ function computeNextAction(ctx: GuideContext): NextAction | null {
       if (ctx.ritualsCount === 0) {
         return {
           prompt: "Hiç ritüel yok. Oracle 4 default ritüel hazırladı (L10, Weekly Review, Deep Work, Strategic Review).",
-          cta: "Onboarding'i tekrar aç",
-          href: "/",
+          cta: "Dashboard'a git",
+          href: "/dashboard",
           tone: "nebula",
           estMinutes: 3,
         };
@@ -348,8 +348,8 @@ function computeNextAction(ctx: GuideContext): NextAction | null {
         return {
           prompt: "Bütçe satırı yok. Oracle başlangıç sermayene göre 4-5 bütçe önerdi.",
           why: "Bütçe yoksa kill-switch tetiklenmez, runaway LLM costs riski var.",
-          cta: "Onboarding'i tekrar aç",
-          href: "/",
+          cta: "Dashboard'a git",
+          href: "/dashboard",
           tone: "solar",
           estMinutes: 5,
         };

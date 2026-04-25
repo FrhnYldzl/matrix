@@ -33,8 +33,8 @@ export function Sidebar() {
 
   return (
     <aside className="relative z-10 hidden w-64 shrink-0 border-r border-border/70 bg-surface/60 backdrop-blur-md md:flex md:flex-col">
-      {/* Brand */}
-      <Link href="/" className="flex items-center gap-3 px-5 py-5 group">
+      {/* Brand — sidebar logo authenticated user için Command Deck'e götürür */}
+      <Link href="/dashboard" className="flex items-center gap-3 px-5 py-5 group">
         <MatrixMark className="h-8 w-8 text-ion transition-transform group-hover:rotate-[24deg]" />
         <div className="leading-tight">
           <div className="font-mono text-[11px] uppercase tracking-[0.25em] text-text-muted">

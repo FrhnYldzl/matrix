@@ -87,7 +87,7 @@ export const CODEX: CodexEntry[] = [
   // ─── ORGANIZE ────────────────────────────────────────────────────────────
   {
     slug: "construct",
-    href: "/",
+    href: "/dashboard",
     matrixName: "The Construct",
     subLabel: "Command Deck",
     icon: LayoutGrid,

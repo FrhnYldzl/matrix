@@ -9,7 +9,7 @@ export default function NotFound() {
       speaker="The Oracle"
       quote="Don't worry about the vase."
       tone="nebula"
-      primaryAction={{ label: "The Construct'a dön", href: "/" }}
+      primaryAction={{ label: "The Construct'a dön", href: "/dashboard" }}
       secondaryAction={{ label: "Oracle'ı dinle", href: "/oracle" }}
     />
   );

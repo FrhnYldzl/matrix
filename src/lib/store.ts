@@ -120,8 +120,13 @@ interface WorkspaceState {
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
-  currentWorkspaceId: seedWorkspaces[0].id,
-  workspaces: seedWorkspaces,
+  // Public landing + auth tasarımı: kullanıcı login eder, BOŞ portföy görür.
+  // Mock seed workspaces artık otomatik yüklenmez — kullanıcı kendi
+  // yarattığını veya "Demo asset yükle" butonuyla seed Newsletter'ı görür.
+  // Seed mock-data hâlâ duruyor (Codex örnekleri için referans), sadece
+  // store init'te kullanılmıyor.
+  currentWorkspaceId: "",
+  workspaces: [],
   killSwitchArmed: false,
   dismissedApprovals: new Set<string>(),
   createdSkills: [],
@@ -476,8 +481,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
   clearDemoData: () =>
     set((s) => {
+      // Demo veri = (a) eski seedWorkspaces ID'lerinden geleni + (b) "Demo
+      // asset yükle" butonuyla yaratılan ws-demo-* prefix'li ID'ler.
+      // Manuel olarak yaratılan gerçek workspace'ler korunur.
       const seedIds = new Set(seedWorkspaces.map((w) => w.id));
-      const remainingWorkspaces = s.workspaces.filter((w) => !seedIds.has(w.id));
+      const remainingWorkspaces = s.workspaces.filter(
+        (w) => !seedIds.has(w.id) && !w.id.startsWith("ws-demo-")
+      );
       const remainingIds = new Set(remainingWorkspaces.map((w) => w.id));
 
       const nextCurrent = remainingIds.has(s.currentWorkspaceId)

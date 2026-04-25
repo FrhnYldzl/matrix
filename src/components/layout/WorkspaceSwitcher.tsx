@@ -31,10 +31,12 @@ export function WorkspaceSwitcher() {
     clearDemoData,
   } = useWorkspaceStore();
   const current = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0];
-  // Seed vs real — "Demo datayı temizle" butonu sadece seed workspace varsa çıkar
+  // Seed/demo vs gerçek — "Demo veriyi temizle" butonu sadece silinecek
+  // bir şey varsa çıkar. (a) Eski seed ID'leri + (b) ws-demo-* prefix'li
+  // demo asset workspaces.
   const seedIdSet = useMemo(() => new Set(seedWorkspaces.map((w) => w.id)), []);
   const hasSeedData = useMemo(
-    () => workspaces.some((w) => seedIdSet.has(w.id)),
+    () => workspaces.some((w) => seedIdSet.has(w.id) || w.id.startsWith("ws-demo-")),
     [workspaces, seedIdSet]
   );
   const [open, setOpen] = useState(false);
@@ -268,22 +270,29 @@ export function WorkspaceSwitcher() {
             {hasSeedData && (
               <button
                 onClick={() => {
-                  const seedCount = workspaces.filter((w) => seedIdSet.has(w.id)).length;
+                  const removeCount = workspaces.filter(
+                    (w) => seedIdSet.has(w.id) || w.id.startsWith("ws-demo-")
+                  ).length;
                   clearDemoData();
                   setOpen(false);
                   toast({
                     tone: "nebula",
                     title: "Demo veri temizlendi",
-                    description: `${seedCount} seed workspace ve ilişkili entity'ler kaldırıldı. Artık sadece senin gerçek portföyün görünüyor.`,
+                    description: `${removeCount} demo workspace ve ilişkili entity'ler kaldırıldı. Artık sadece senin gerçek portföyün görünüyor.`,
                   });
                 }}
                 className="mt-1 flex w-full items-center gap-2 rounded-md border border-crimson/20 bg-crimson-soft/20 px-3 py-2 text-left text-sm text-crimson transition-colors hover:bg-crimson-soft/40"
-                title="Mock/demo workspace'leri siler, sadece senin yarattığın gerçek asset'ler kalır"
+                title="Demo workspace'leri siler, sadece senin yarattığın gerçek asset'ler kalır"
               >
                 <Trash2 size={13} />
                 Demo veriyi temizle
                 <span className="ml-auto font-mono text-[10px] opacity-70">
-                  {workspaces.filter((w) => seedIdSet.has(w.id)).length} seed
+                  {
+                    workspaces.filter(
+                      (w) => seedIdSet.has(w.id) || w.id.startsWith("ws-demo-")
+                    ).length
+                  }{" "}
+                  demo
                 </span>
               </button>
             )}

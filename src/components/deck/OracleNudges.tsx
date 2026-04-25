@@ -53,6 +53,7 @@ export function OracleNudges() {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   const suggestions = useMemo(() => {
+    if (!ws) return [];
     return scanWorkspace({
       workspace: ws,
       departments: allDepartments.filter((d) => d.workspaceId === ws.id),
@@ -66,6 +67,8 @@ export function OracleNudges() {
       .filter((s) => !accepted.has(s.source) && !dismissed.has(s.source))
       .slice(0, 3);
   }, [ws, accepted, dismissed]);
+
+  if (!ws) return null;
 
   const accept = (s: Suggestion) => {
     const ctx = {
