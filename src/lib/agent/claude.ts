@@ -97,10 +97,16 @@ export async function callClaude(
   // ── REAL SDK CALL ───────────────────────────────────────────────────────
   const client = new Anthropic({ apiKey });
 
+  // Opus 4.7 'temperature'/'top_p'/'top_k' kabul etmiyor (400 deprecated).
+  // Sadece adaptive thinking destekliyor. Diğer modeller temperature alır.
+  const isOpus47 = model === "claude-opus-4-7";
+
   const response = await client.messages.create({
     model,
     max_tokens: maxTokens,
-    temperature,
+    ...(isOpus47
+      ? { thinking: { type: "adaptive" as const } }
+      : { temperature }),
     system: params.system,
     messages: [{ role: "user", content: params.user }],
   });
