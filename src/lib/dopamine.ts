@@ -381,6 +381,27 @@ export const CELEBRATION_MAP: Partial<Record<DopamineEventKind, CelebrationProfi
     titleFor: (xp, bonus) => `📊 Haftalık review · +${xp + bonus} XP`,
     quote: QUOTES.ritual,
   },
+  "l10.meeting.completed": {
+    intensity: "mid",
+    tone: "ion",
+    titleFor: (xp, bonus) => `🎯 L10 tamamlandı · +${xp + bonus} XP`,
+    quote: QUOTES.ritual,
+  },
+  "prime.program.block.done": {
+    intensity: "micro",
+    tone: "nebula",
+    titleFor: (xp, bonus) => `+${xp + bonus} XP · ritual işlendi`,
+  },
+  "task.started": {
+    intensity: "micro",
+    tone: "ion",
+    titleFor: () => "▶ task başladı",
+  },
+  "goal.progressed": {
+    intensity: "micro",
+    tone: "quantum",
+    titleFor: (xp, bonus) => `+${xp + bonus} XP · OKR ilerledi`,
+  },
   "task.completed": {
     intensity: "micro",
     tone: "quantum",

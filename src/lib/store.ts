@@ -61,8 +61,17 @@ interface WorkspaceState {
   createWorkflow: (item: CreatedItem<Workflow>, source?: string) => void;
   createDepartment: (item: CreatedItem<Department>, source?: string) => void;
   createGoal: (item: CreatedItem<Goal>, source?: string) => void;
+  /** Goal'un current progress'ini güncelle. Hedef tamamlandıysa
+   *  goal.completed event'i tetiklenir, aksi halde goal.progressed. */
+  updateGoalProgress: (goalId: string, newCurrent: number) => void;
   createOperatorTask: (item: CreatedItem<Task>, source?: string) => void;
+  /** Task status değiştir (todo→doing→review→done→blocked).
+   *  done'a geçince task.completed event'i fışkırır + variable bonus rulosu. */
+  setTaskStatus: (taskId: string, status: Task["status"]) => void;
   createRitual: (item: CreatedItem<Ritual>, source?: string) => void;
+  /** Bir ritüel tamamlandı (örn. L10 yapıldı). Streak + lastRunAt güncel,
+   *  ritm tipine göre prime.program.block.done veya weekly.review.completed. */
+  completeRitual: (ritualId: string) => void;
   createBudget: (item: CreatedItem<Budget>, source?: string) => void;
   createWorkspace: (item: CreatedItem<Workspace>, source?: string) => void;
   /**
@@ -235,6 +244,53 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       meta: { goalTitle: item.entity.title },
     });
   },
+  updateGoalProgress: (goalId, newCurrent) => {
+    const state = get();
+    const item = state.createdGoals.find((c) => c.entity.id === goalId);
+    if (!item) return;
+    const oldCurrent = item.entity.current;
+    if (oldCurrent === newCurrent) return;
+
+    // Trajectory'i basit recompute — invert metric'lerde lower-better
+    const target = item.entity.target;
+    const ratio = item.entity.invert
+      ? newCurrent <= target
+        ? 1
+        : target / Math.max(newCurrent, 1)
+      : newCurrent / Math.max(target, 1);
+    const trajectory: Goal["trajectory"] =
+      ratio >= 1 ? "ahead" : ratio >= 0.85 ? "on-track" : ratio >= 0.5 ? "at-risk" : "off-track";
+
+    set((s) => ({
+      createdGoals: s.createdGoals.map((c) =>
+        c.entity.id === goalId
+          ? {
+              ...c,
+              entity: {
+                ...c.entity,
+                current: newCurrent,
+                trajectory,
+                history: [...(c.entity.history ?? []), newCurrent].slice(-12),
+              },
+            }
+          : c
+      ),
+    }));
+
+    // Hedef tamamlandı mı?
+    const reached = item.entity.invert ? newCurrent <= target : newCurrent >= target;
+    if (reached && !(item.entity.invert ? oldCurrent <= target : oldCurrent >= target)) {
+      get().recordAction("goal.completed", {
+        workspaceId: item.entity.workspaceId,
+        meta: { goalTitle: item.entity.title, target, achieved: newCurrent },
+      });
+    } else {
+      get().recordAction("goal.progressed", {
+        workspaceId: item.entity.workspaceId,
+        meta: { goalTitle: item.entity.title, from: oldCurrent, to: newCurrent },
+      });
+    }
+  },
   createOperatorTask: (item, source) => {
     set((s) => ({
       createdOperatorTasks: [...s.createdOperatorTasks, item],
@@ -247,6 +303,50 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       silent: source?.startsWith("oracle-onboarding:") ?? false,
       meta: { taskTitle: item.entity.title },
     });
+  },
+  setTaskStatus: (taskId, status) => {
+    const state = get();
+    const item = state.createdOperatorTasks.find((c) => c.entity.id === taskId);
+    if (!item) return; // unknown task
+    const oldStatus = item.entity.status;
+    if (oldStatus === status) return; // no-op
+
+    const nowIso = new Date().toISOString();
+    set((s) => ({
+      createdOperatorTasks: s.createdOperatorTasks.map((c) =>
+        c.entity.id === taskId
+          ? {
+              ...c,
+              entity: {
+                ...c.entity,
+                status,
+                startedAtIso:
+                  status === "doing" && !c.entity.startedAtIso
+                    ? nowIso
+                    : c.entity.startedAtIso,
+                completedAtIso: status === "done" ? nowIso : c.entity.completedAtIso,
+              },
+            }
+          : c
+      ),
+    }));
+
+    // Dopamine — geçişe göre uygun event
+    if (status === "doing" && oldStatus !== "doing") {
+      get().recordAction("task.started", {
+        workspaceId: item.entity.workspaceId,
+        silent: true, // mikro, bildirme
+        meta: { taskTitle: item.entity.title },
+      });
+    } else if (status === "done" && oldStatus !== "done") {
+      get().recordAction("task.completed", {
+        workspaceId: item.entity.workspaceId,
+        meta: {
+          taskTitle: item.entity.title,
+          isQuickWin: item.entity.tags.includes("quick-win"),
+        },
+      });
+    }
   },
   createRitual: (item, source) => {
     set((s) => ({
@@ -262,6 +362,48 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       silent: true, // ritual genelde batch onboarding'te
       meta: { ritualLabel: item.entity.label },
     });
+  },
+  completeRitual: (ritualId) => {
+    const state = get();
+    const item = state.createdRituals.find((c) => c.entity.id === ritualId);
+    if (!item) return;
+    const nowIso = new Date().toISOString();
+
+    // Streak — son tamamlama 8 günden eskiyse reset, değilse +1
+    const lastIso = item.entity.lastRunAtIso;
+    const continued =
+      !!lastIso && Date.now() - new Date(lastIso).getTime() < 8 * 86400000;
+    const newStreak = continued ? item.entity.streak + 1 : 1;
+
+    set((s) => ({
+      createdRituals: s.createdRituals.map((c) =>
+        c.entity.id === ritualId
+          ? {
+              ...c,
+              entity: { ...c.entity, lastRunAtIso: nowIso, streak: newStreak },
+            }
+          : c
+      ),
+    }));
+
+    // Cadence'a göre uygun XP event'i seç
+    const label = item.entity.label.toLowerCase();
+    if (label.includes("weekly review") || label.includes("the truth")) {
+      get().recordAction("weekly.review.completed", {
+        workspaceId: item.entity.workspaceId,
+        meta: { label: item.entity.label, streak: newStreak },
+      });
+    } else if (label.includes("l10")) {
+      get().recordAction("l10.meeting.completed", {
+        workspaceId: item.entity.workspaceId,
+        meta: { label: item.entity.label, streak: newStreak },
+      });
+    } else {
+      get().recordAction("prime.program.block.done", {
+        workspaceId: item.entity.workspaceId,
+        meta: { label: item.entity.label, streak: newStreak },
+      });
+    }
   },
   createBudget: (item, source) => {
     set((s) => ({

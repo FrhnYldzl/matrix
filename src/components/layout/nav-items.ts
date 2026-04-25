@@ -11,6 +11,7 @@ import {
   Library as LibraryIcon,
   Network,
   Plug,
+  Repeat,
   Rocket,
   ScrollText,
   Sparkles,
@@ -129,6 +130,15 @@ export const navItems: NavItem[] = [
     icon: ClipboardList,
     group: "ops",
     accent: "ion",
+  },
+  {
+    href: "/prime",
+    label: "Prime Program",
+    subLabel: "Daily/Weekly Rituals",
+    tagline: "L10 · weekly review · deep work",
+    icon: Repeat,
+    group: "ops",
+    accent: "nebula",
   },
   {
     href: "/control",

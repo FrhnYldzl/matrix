@@ -33,9 +33,10 @@ import {
 import { MatrixHexGrid } from "../brand/MatrixHexGrid";
 import { MatrixQuote, MODULE_QUOTES } from "../brand/MatrixQuote";
 import { toast } from "@/lib/toast";
+import { OracleGuide } from "../oracle/OracleGuide";
 
 export function SpendPage() {
-  const { currentWorkspaceId, workspaces } = useWorkspaceStore();
+  const { currentWorkspaceId, workspaces, createdBudgets } = useWorkspaceStore();
   const ws = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0];
 
   // 30-day window
@@ -44,10 +45,41 @@ export function SpendPage() {
   ).toISOString();
 
   const summary = useMemo<SpendSummary>(
-    () => summarizeSpend(ws.id, since),
-    [ws.id, since]
+    () =>
+      ws
+        ? summarizeSpend(ws.id, since)
+        : {
+            totalUsd: 0,
+            byDay: [],
+            byActor: [],
+            byConnector: [],
+            byKind: {
+              "llm-tokens": 0,
+              "api-call": 0,
+              "platform-share": 0,
+              "per-unit": 0,
+              "rev-share": 0,
+            },
+          },
+    [ws, since]
   );
-  const budgetsWithSpend = useMemo(() => getBudgetsWithSpend(ws.id), [ws.id]);
+  // Seed budgets + Oracle-onboarded budgets (yeni workspace'in spentUsd=0)
+  const budgetsWithSpend = useMemo(() => {
+    if (!ws) return [];
+    const seed = getBudgetsWithSpend(ws.id);
+    const oracle = createdBudgets
+      .filter((c) => c.entity.workspaceId === ws.id)
+      .map((c) => ({ ...c.entity, spentUsd: c.entity.spentUsd ?? 0 }));
+    return [...seed, ...oracle];
+  }, [ws, createdBudgets]);
+
+  if (!ws) {
+    return (
+      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center text-text-muted">
+        Workspace yok — sol üstten ekle.
+      </div>
+    );
+  }
 
   const revenue = revenueAttribution[ws.id]?.monthlyUsd ?? 0;
   const revenueSource = revenueAttribution[ws.id]?.source;
@@ -97,6 +129,8 @@ export function SpendPage() {
       </section>
 
       <section className="space-y-6 px-8 py-8">
+        <OracleGuide page="spend" />
+
         {/* Top stat row */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatCard

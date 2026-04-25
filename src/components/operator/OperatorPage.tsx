@@ -71,6 +71,12 @@ export function OperatorPage() {
     ];
   }, [ws, createdOperatorTasks]);
 
+  // Hangi tasklar store'a ait (status değiştirilebilir) — seed read-only
+  const storeOwnedIds = useMemo(
+    () => new Set(createdOperatorTasks.map((c) => c.entity.id)),
+    [createdOperatorTasks]
+  );
+
   const filtered = useMemo(() => {
     return wsTasks.filter((t) => {
       if (realmFilter !== "all" && t.realm !== realmFilter) return false;
@@ -308,6 +314,7 @@ export function OperatorPage() {
               label={col.label}
               tone={col.tone}
               tasks={byStatus[col.status]}
+              storeOwnedIds={storeOwnedIds}
             />
           ))}
         </div>
@@ -363,11 +370,13 @@ function BoardColumn({
   label,
   tone,
   tasks,
+  storeOwnedIds,
 }: {
   status: TaskStatus;
   label: string;
   tone: "ion" | "nebula" | "quantum" | "solar" | "crimson";
   tasks: Task[];
+  storeOwnedIds: Set<string>;
 }) {
   const toneBorder =
     tone === "ion"
@@ -400,7 +409,7 @@ function BoardColumn({
       </div>
       <ul className="mt-3 space-y-2.5">
         {tasks.map((t) => (
-          <TaskCard key={t.id} task={t} />
+          <TaskCard key={t.id} task={t} storeOwned={storeOwnedIds.has(t.id)} />
         ))}
         {tasks.length === 0 && (
           <li className="rounded-md border border-dashed border-border/50 bg-elevated/20 p-3 text-center font-mono text-[10px] text-text-faint">
@@ -416,7 +425,8 @@ function BoardColumn({
 // Task card
 // ---------------------------------------------------------------------------
 
-function TaskCard({ task: t }: { task: Task }) {
+function TaskCard({ task: t, storeOwned }: { task: Task; storeOwned: boolean }) {
+  const setTaskStatus = useWorkspaceStore((s) => s.setTaskStatus);
   const prioTone = priorityMeta[t.priority].tone;
   const prioCls =
     prioTone === "crimson"
@@ -432,6 +442,28 @@ function TaskCard({ task: t }: { task: Task }) {
   const dueLabel = due
     ? due.toLocaleDateString("tr-TR", { day: "2-digit", month: "short" })
     : null;
+
+  // Status transition seçenekleri — sadece store-owned tasks için
+  const transitions: Array<{ to: TaskStatus; label: string; tone: string }> =
+    storeOwned
+      ? t.status === "todo"
+        ? [
+            { to: "doing", label: "▶ Başlat", tone: "ion" },
+            { to: "done", label: "✓ Bitti", tone: "quantum" },
+          ]
+        : t.status === "doing"
+        ? [
+            { to: "done", label: "✓ Bitti", tone: "quantum" },
+            { to: "blocked", label: "⏸ Blok", tone: "crimson" },
+          ]
+        : t.status === "review"
+        ? [{ to: "done", label: "✓ Onayla", tone: "quantum" }]
+        : t.status === "blocked"
+        ? [{ to: "doing", label: "▶ Devam", tone: "ion" }]
+        : t.status === "done"
+        ? [{ to: "todo", label: "↶ Geri al", tone: "neutral" }]
+        : []
+      : [];
 
   return (
     <li
@@ -545,6 +577,35 @@ function TaskCard({ task: t }: { task: Task }) {
               ↔ issue
             </span>
           )}
+        </div>
+      )}
+
+      {/* Status transition butonları — sadece store-owned (Oracle/Matrix native) */}
+      {transitions.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-border/40 pt-2">
+          {transitions.map((tr) => (
+            <button
+              key={tr.to}
+              onClick={() => setTaskStatus(t.id, tr.to)}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-all",
+                tr.tone === "ion" && "border-ion/40 bg-ion-soft text-ion hover:bg-ion/20",
+                tr.tone === "quantum" &&
+                  "border-quantum/40 bg-quantum-soft text-quantum hover:bg-quantum/20",
+                tr.tone === "crimson" &&
+                  "border-crimson/30 bg-crimson-soft/40 text-crimson hover:bg-crimson/20",
+                tr.tone === "neutral" &&
+                  "border-border/60 bg-elevated text-text-muted hover:bg-raised"
+              )}
+            >
+              {tr.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {!storeOwned && t.source === "matrix" && (
+        <div className="mt-2.5 border-t border-border/40 pt-2 font-mono text-[9px] text-text-faint">
+          seed task — read-only mock
         </div>
       )}
     </li>

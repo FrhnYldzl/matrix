@@ -37,6 +37,7 @@ export type GuidePage =
   | "traction"
   | "prime"
   | "costs"
+  | "spend" // /spend route (= "costs" page'i)
   | "insights";
 
 interface NextAction {
@@ -327,30 +328,38 @@ function computeNextAction(ctx: GuideContext): NextAction | null {
       if (ctx.ritualsCount === 0) {
         return {
           prompt: "Hiç ritüel yok. Oracle 4 default ritüel hazırladı (L10, Weekly Review, Deep Work, Strategic Review).",
-          cta: "Ritüelleri kabul et",
+          cta: "Onboarding'i tekrar aç",
+          href: "/",
           tone: "nebula",
           estMinutes: 3,
         };
       }
       return {
-        prompt: "Pazartesi 09:30 L10 Meeting'i bugün gerçekleştir — streak'in başlasın.",
-        why: "EOS L10 ritmi her hafta tutturulduğunda 5. haftada otomatik +300 XP achievement açar.",
-        cta: "L10'u başlat",
+        prompt: "Bugünkü ritüellerden 1 tanesini tamamla → 'Bugün yaptım' butonu — streak başlasın.",
+        why: "EOS L10 ritmi her hafta tutturulduğunda makro XP multiplier'ı tetiklenir.",
+        cta: "Bugünkü ritüele git",
         tone: "ion",
-        estMinutes: 90,
+        estMinutes: 60,
       };
 
     case "costs":
+    case "spend":
       if (ctx.budgetsCount === 0) {
         return {
           prompt: "Bütçe satırı yok. Oracle başlangıç sermayene göre 4-5 bütçe önerdi.",
           why: "Bütçe yoksa kill-switch tetiklenmez, runaway LLM costs riski var.",
-          cta: "Bütçeleri ayarla",
+          cta: "Onboarding'i tekrar aç",
+          href: "/",
           tone: "solar",
           estMinutes: 5,
         };
       }
-      return null;
+      return {
+        prompt: "Her ay sonu bütçe spend'ini gözden geçir — Oracle warn threshold'u %80'e ayarladı.",
+        cta: "Bütçeyi incele",
+        tone: "ion",
+        estMinutes: 5,
+      };
 
     case "org":
       if (ctx.agentsCount === 0) {

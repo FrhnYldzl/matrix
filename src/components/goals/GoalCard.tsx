@@ -3,10 +3,12 @@
 import { cn } from "@/lib/cn";
 import { agents, skills, workspaces } from "@/lib/mock-data";
 import type { Goal } from "@/lib/types";
+import { useWorkspaceStore } from "@/lib/store";
 import { Card } from "../ui/Card";
 import { RadialProgress } from "../ui/RadialProgress";
 import { Sparkline } from "../ui/Sparkline";
-import { Bot, Wrench } from "lucide-react";
+import { Bot, Pencil, Wrench, X } from "lucide-react";
+import { useState } from "react";
 
 const trajectoryMeta: Record<
   Goal["trajectory"],
@@ -35,6 +37,19 @@ export function GoalCard({ goal }: { goal: Goal }) {
   const meta = trajectoryMeta[goal.trajectory];
   const pct = progressPct(goal);
   const ws = workspaces.find((w) => w.id === goal.workspaceId);
+  const updateGoalProgress = useWorkspaceStore((s) => s.updateGoalProgress);
+  const createdGoals = useWorkspaceStore((s) => s.createdGoals);
+  const isStoreOwned = createdGoals.some((c) => c.entity.id === goal.id);
+  const [editing, setEditing] = useState(false);
+  const [draftValue, setDraftValue] = useState(goal.current.toString());
+
+  const save = () => {
+    const n = Number(draftValue);
+    if (Number.isFinite(n) && n >= 0) {
+      updateGoalProgress(goal.id, n);
+    }
+    setEditing(false);
+  };
   const linkedAgents = goal.linkedAgentIds
     .map((id) => agents.find((a) => a.id === id))
     .filter(Boolean);
@@ -82,17 +97,69 @@ export function GoalCard({ goal }: { goal: Goal }) {
           <div className="mt-1 font-mono text-[11px] text-text-muted">{goal.metric}</div>
 
           <div className="mt-3 flex items-baseline gap-3">
-            <span className={cn("text-2xl font-semibold tabular-nums", meta.text)}>
-              {goal.current}
-              {goal.unit === "%" && "%"}
-            </span>
-            <span className="text-xs text-text-faint">
-              /{" "}
-              <span className="font-mono">
-                {goal.target}
-                {goal.unit === "%" ? "%" : ` ${goal.unit}`}
-              </span>
-            </span>
+            {editing && isStoreOwned ? (
+              <>
+                <input
+                  type="number"
+                  value={draftValue}
+                  onChange={(e) => setDraftValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") save();
+                    if (e.key === "Escape") setEditing(false);
+                  }}
+                  autoFocus
+                  className={cn(
+                    "w-24 rounded-md border bg-elevated/60 px-2 py-1 text-2xl font-semibold tabular-nums outline-none",
+                    "border-nebula/40 focus:border-nebula",
+                    meta.text
+                  )}
+                />
+                <button
+                  onClick={save}
+                  className="rounded-md bg-quantum-soft px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-quantum hover:bg-quantum/20"
+                >
+                  kaydet
+                </button>
+                <button
+                  onClick={() => setEditing(false)}
+                  className="rounded-md p-1 text-text-faint hover:text-text"
+                  aria-label="İptal"
+                >
+                  <X size={12} />
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => isStoreOwned && setEditing(true)}
+                  disabled={!isStoreOwned}
+                  className={cn(
+                    "group inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 -mx-1.5 transition-colors",
+                    isStoreOwned && "hover:bg-elevated/50 cursor-text",
+                    !isStoreOwned && "cursor-default"
+                  )}
+                  title={isStoreOwned ? "Mevcut değeri güncelle" : "Seed goal — read-only mock"}
+                >
+                  <span className={cn("text-2xl font-semibold tabular-nums", meta.text)}>
+                    {goal.current}
+                    {goal.unit === "%" && "%"}
+                  </span>
+                  {isStoreOwned && (
+                    <Pencil
+                      size={11}
+                      className="text-text-faint opacity-0 transition-opacity group-hover:opacity-100"
+                    />
+                  )}
+                </button>
+                <span className="text-xs text-text-faint">
+                  /{" "}
+                  <span className="font-mono">
+                    {goal.target}
+                    {goal.unit === "%" ? "%" : ` ${goal.unit}`}
+                  </span>
+                </span>
+              </>
+            )}
             {goal.invert && (
               <span className="ml-auto rounded-sm border border-border/50 bg-elevated/40 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-text-faint">
                 düşük = iyi
