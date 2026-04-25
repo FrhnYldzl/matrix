@@ -187,8 +187,10 @@ export async function sendMagicLinkEmail(params: {
   magicUrl: string;
 }): Promise<{ sent: boolean; channel: "resend" | "console" }> {
   const { toEmail, toName, magicUrl } = params;
-  // Multi-name fallback — Ferhan ne ad kullanırsa çalışsın
+  // Multi-name fallback — Railway'de boşluklu adlar dahil.
   const apiKey =
+    process.env["Vibe Business Resend"] ??
+    process.env["VIBE BUSINESS RESEND"] ??
     process.env.VIBE_BUSINESS_RESEND_API_KEY ??
     process.env.VIBE_BUSINESS_RESEND ??
     process.env.MATRIX_RESEND_API_KEY ??

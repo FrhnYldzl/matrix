@@ -65,10 +65,12 @@ export async function callClaude(
   const temperature = params.temperature ?? 0.7;
   const started = Date.now();
 
-  // Multi-name fallback — Ferhan ne ad kullanırsa çalışsın, "buralarda
-  // uğraşmayalım" direktifi: VIBE_BUSINESS / MATRIX / standart, hangisi
-  // tanımlıysa onu al.
+  // Multi-name fallback — Ferhan ne ad kullanırsa çalışsın.
+  // Railway'de boşluklu adlar da var ("Vibe Business") — bracket notation
+  // ile onları da okuyoruz.
   const apiKey =
+    process.env["Vibe Business"] ??
+    process.env["VIBE BUSINESS"] ??
     process.env.VIBE_BUSINESS_ANTHROPIC_API_KEY ??
     process.env.VIBE_BUSINESS_API_KEY ??
     process.env.MATRIX_ANTHROPIC_API_KEY ??
