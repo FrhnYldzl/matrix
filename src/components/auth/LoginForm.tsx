@@ -4,20 +4,25 @@ import { useState } from "react";
 import { MatrixCodeRain } from "@/components/brand/MatrixCodeRain";
 import { MatrixQuote } from "@/components/brand/MatrixQuote";
 import { Button } from "@/components/ui/Button";
-import { AlertCircle, CheckCircle2, Mail, Terminal } from "lucide-react";
+import { AlertCircle, Mail, Terminal } from "lucide-react";
 
 /**
  * LoginForm — "Operator Console" sign-in.
  *
- * Email allowlist'te olan bir adres varsa, 15-dakikalık magic link
- * gönderilir. Resend API key'i prod'da, console log fallback dev'de.
+ * SADELEŞTİRİLMİŞ AKIŞ (Ferhan: "magic link işi karıştırıyor, kaldır"):
+ *   - Kullanıcı email girer + "Giriş yap" tıklar
+ *   - API allowlist kontrolü yapar, doğrudan session cookie set eder
+ *   - Frontend window.location.href = "/dashboard" yönlendirir
+ *   - Magic-link email tıklama adımı YOK (Resend dependency yok)
+ *
+ * Allowlist hâlâ aktif — yetkisiz email giriş yapamaz. 2FA istersek
+ * ileride magic-link flow'una geri dönülebilir.
  */
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<
     | { kind: "idle" }
     | { kind: "loading" }
-    | { kind: "sent"; channel: "resend" | "console"; devMagicUrl?: string }
     | { kind: "error"; message: string }
   >({ kind: "idle" });
 
@@ -36,11 +41,8 @@ export function LoginForm() {
         setState({ kind: "error", message: data.error || "Bir sorun oluştu" });
         return;
       }
-      setState({
-        kind: "sent",
-        channel: data.channel,
-        devMagicUrl: data.devMagicUrl,
-      });
+      // Direct redirect — session cookie zaten set edildi
+      window.location.href = data.redirect || "/dashboard";
     } catch {
       setState({ kind: "error", message: "Ağ hatası — tekrar dene" });
     }
@@ -68,59 +70,49 @@ export function LoginForm() {
             </div>
           </div>
 
-          {state.kind === "sent" ? (
-            <SuccessView
-              channel={state.channel}
-              email={email}
-              devMagicUrl={state.devMagicUrl}
-            />
-          ) : (
-            <form onSubmit={submit} className="mt-6 space-y-4">
-              <div>
-                <label className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-faint">
-                  E-posta · allowlist doğrulaması
-                </label>
-                <div className="mt-2 flex items-center gap-2 rounded-md border border-border/60 bg-elevated/50 px-3 py-2">
-                  <Mail size={14} className="text-text-faint" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="ferhan@ferhan.co"
-                    required
-                    autoFocus
-                    className="w-full bg-transparent text-sm outline-none placeholder:text-text-faint"
-                  />
-                </div>
-                <p className="mt-2 font-mono text-[10px] text-text-faint">
-                  MATRIX_ALLOWED_EMAILS env değişkenindeki adreslerden birini gir.
-                </p>
+          <form onSubmit={submit} className="mt-6 space-y-4">
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-faint">
+                E-posta · allowlist doğrulaması
+              </label>
+              <div className="mt-2 flex items-center gap-2 rounded-md border border-border/60 bg-elevated/50 px-3 py-2">
+                <Mail size={14} className="text-text-faint" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="ferhan@ferhan.co"
+                  required
+                  autoFocus
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-text-faint"
+                />
               </div>
-
-              {state.kind === "error" && (
-                <div className="flex items-start gap-2 rounded-md border border-crimson/30 bg-crimson-soft/20 p-3 text-xs text-crimson">
-                  <AlertCircle size={13} className="mt-0.5 shrink-0" />
-                  <span>{state.message}</span>
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                className="w-full"
-                disabled={state.kind === "loading"}
-              >
-                {state.kind === "loading"
-                  ? "Link gönderiliyor…"
-                  : "Sign-in linki gönder"}
-              </Button>
-
-              <p className="text-center font-mono text-[10px] text-text-faint">
-                Link 15 dakika geçerli. Yalnızca bu cihazda aç.
+              <p className="mt-2 font-mono text-[10px] text-text-faint">
+                Yetkili adresleri Matrix tanıyor. Diğerleri reddedilir.
               </p>
-            </form>
-          )}
+            </div>
+
+            {state.kind === "error" && (
+              <div className="flex items-start gap-2 rounded-md border border-crimson/30 bg-crimson-soft/20 p-3 text-xs text-crimson">
+                <AlertCircle size={13} className="mt-0.5 shrink-0" />
+                <span>{state.message}</span>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              className="w-full"
+              disabled={state.kind === "loading"}
+            >
+              {state.kind === "loading" ? "Giriş yapılıyor…" : "Giriş yap"}
+            </Button>
+
+            <p className="text-center font-mono text-[10px] text-text-faint">
+              7 gün geçerli oturum · sadece bu cihaz
+            </p>
+          </form>
 
           <div className="mt-6 border-t border-border/50 pt-5">
             <MatrixQuote speaker="Morpheus" tone="ion">
@@ -134,55 +126,5 @@ export function LoginForm() {
         </div>
       </div>
     </main>
-  );
-}
-
-function SuccessView({
-  channel,
-  email,
-  devMagicUrl,
-}: {
-  channel: "resend" | "console";
-  email: string;
-  devMagicUrl?: string;
-}) {
-  // Sadece UX — kullanıcı "dev mode", "RESEND yok" gibi teknik mesajları
-  // görmemeli. Hangi kanal olursa olsun "giriş linkin hazır" hissi ver.
-  return (
-    <div className="mt-6 space-y-4">
-      <div className="flex items-start gap-3 rounded-lg border border-quantum/30 bg-quantum-soft/15 p-4">
-        <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-quantum" />
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-text">
-            {channel === "resend"
-              ? "Giriş linkin gönderildi"
-              : "Giriş linkin hazır"}
-          </div>
-          <p className="mt-1 text-[12px] leading-relaxed text-text-muted">
-            {channel === "resend" ? (
-              <>
-                <span className="text-text">{email}</span> adresine 15 dakikalık
-                sign-in link&apos;i gönderdim. Spam klasörünü de kontrol et.
-              </>
-            ) : (
-              <>
-                15 dakika geçerli sign-in link&apos;in hazır. Aşağıdaki düğmeye
-                tıkla, Matrix&apos;e gir.
-              </>
-            )}
-          </p>
-        </div>
-      </div>
-
-      {/* Magic URL — kanal ne olursa olsun kullanıcıya direkt buton göster */}
-      {channel === "console" && devMagicUrl && (
-        <a
-          href={devMagicUrl}
-          className="block rounded-lg border border-ion/40 bg-ion-soft/30 px-4 py-3 text-center text-sm font-medium text-ion transition-all hover:bg-ion/20 hover:scale-[1.01]"
-        >
-          → Matrix&apos;e gir (15 dk geçerli)
-        </a>
-      )}
-    </div>
   );
 }

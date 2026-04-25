@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
+  buildSessionCookie,
   isEmailAllowed,
-  sendMagicLinkEmail,
   signToken,
   getAllowedEmails,
 } from "@/lib/auth";
@@ -10,9 +10,14 @@ import {
  * POST /api/auth/magic-link
  * Body: { email }
  *
- * Returns 200 with channel info when link was dispatched.
- * Security: reveals whether email is allowlisted — acceptable for a private
- * holdco OS (no spam surface, only known partners).
+ * SADELEŞTİRİLMİŞ AKIŞ (Ferhan: "magic link işi karıştırıyor, kaldır"):
+ *   - Email allowlist'te ise → DOĞRUDAN 7-günlük session cookie SET
+ *   - Response: { ok: true, redirect: "/dashboard" }
+ *   - LoginForm bu redirect'i window.location.href ile takip eder
+ *   - Magic-link tıklama adımı YOK (Resend dependency yok)
+ *
+ * Allowlist hâlâ aktif — yetkisiz email giriş yapamaz.
+ * İleride 2FA isterse `purpose: "magic"` flow'una geri dönülebilir.
  */
 export async function POST(req: Request) {
   try {
@@ -24,7 +29,6 @@ export async function POST(req: Request) {
     const normalized = email.trim().toLowerCase();
 
     if (getAllowedEmails().length === 0) {
-      // Allowlist boşsa kullanıcıya teknik detay vermeyelim — sade mesaj
       console.error(
         "[auth] MATRIX_ALLOWED_EMAILS not set — login attempted but blocked"
       );
@@ -43,67 +47,24 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate short-lived magic token
-    const token = await signToken({
+    // Direct session — magic-link adımı atlandı
+    const sessionToken = await signToken({
       email: normalized,
-      purpose: "magic",
+      purpose: "session",
     });
 
-    // Build the verify URL — Railway proxy header'larını doğru parse et
-    // Eski kod operator precedence yüzünden 0.0.0.0:8080'e fallback yapıyordu
-    const origin = resolvePublicOrigin(req);
-    const magicUrl = `${origin}/api/auth/verify?token=${encodeURIComponent(token)}`;
-
-    const result = await sendMagicLinkEmail({
-      toEmail: normalized,
-      magicUrl,
-    });
-
-    // RESEND_API_KEY yoksa magic URL'i direkt response'da döndür — kullanıcı
-    // login form'da göreceği link'e tıklayıp girer. Bu bypass DEĞİL: email
-    // hâlâ allowlist'te olmalı, token yine 15 dk'da expire olur.
-    // Production'da RESEND_API_KEY ekleyince bu URL response'da gelmez.
-    return NextResponse.json({
+    const res = NextResponse.json({
       ok: true,
-      channel: result.channel,
-      ...(result.channel === "console" && { devMagicUrl: magicUrl }),
+      redirect: "/dashboard",
     });
+    res.headers.set("Set-Cookie", buildSessionCookie(sessionToken));
+    return res;
   } catch (e) {
     console.error("[api/auth/magic-link] failed:", e);
     return NextResponse.json({ error: "İşlem başarısız" }, { status: 500 });
   }
 }
 
-/**
- * Production URL detection — Railway behind a reverse proxy bind ediyor
- * 0.0.0.0:8080'e ama dış dünyadan https://matrix-production-*.railway.app
- * geliyor. x-forwarded-host + x-forwarded-proto header'larıyla doğru
- * URL'i çıkar. NEXT_PUBLIC_APP_URL fallback olarak da var (manuel override).
- */
-function resolvePublicOrigin(req: Request): string {
-  // 1. Manuel override (en güvenilir, prod için kesin)
-  const manual =
-    process.env.MATRIX_PUBLIC_URL ||
-    process.env.VIBE_BUSINESS_PUBLIC_URL ||
-    process.env.NEXT_PUBLIC_APP_URL;
-  if (manual) return manual.replace(/\/$/, "");
-
-  // 2. Browser'dan gelen origin header (en doğru)
-  const originHeader = req.headers.get("origin");
-  if (originHeader) return originHeader.replace(/\/$/, "");
-
-  // 3. Railway/Vercel proxy header'ları
-  const forwardedHost = req.headers.get("x-forwarded-host");
-  const forwardedProto = req.headers.get("x-forwarded-proto") ?? "https";
-  if (forwardedHost) return `${forwardedProto}://${forwardedHost}`;
-
-  // 4. Standart Host header (proxy yoksa)
-  const host = req.headers.get("host");
-  if (host) {
-    const isLocalhost = host.startsWith("localhost") || host.startsWith("127.");
-    return `${isLocalhost ? "http" : "https"}://${host}`;
-  }
-
-  // 5. Son çare — req.url'den parse (en zayıf, 0.0.0.0 olabilir)
-  return new URL(req.url).origin;
-}
+// resolvePublicOrigin kaldırıldı — artık magic-link tıklama yok, direct
+// session set ediyoruz. Redirect URL relative ("/dashboard") — frontend
+// window.location ile takip eder, origin sorununa düşmez.
