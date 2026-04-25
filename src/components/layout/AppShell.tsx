@@ -24,9 +24,14 @@ const BARE_PATHS = [
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   // "/" public landing — kendi tam ekran layout'u, sidebar yok
-  // (BARE_PATHS prefix-match ile "/" ekleyemiyoruz çünkü tüm app'i kapsar)
   const isLanding = pathname === "/";
-  const bare = isLanding || BARE_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  // /workspace/[id]/* — Base44 paradigması, kendi sol Oracle paneli + 4 tab
+  // app sidebar gerekmiyor, WorkspaceShell tüm yerleşimi kuruyor
+  const isWorkspaceRoute = pathname?.startsWith("/workspace/") ?? false;
+  const bare =
+    isLanding ||
+    isWorkspaceRoute ||
+    BARE_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 
   if (bare) {
     return (

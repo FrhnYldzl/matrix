@@ -6,6 +6,7 @@ import { workspaces as seedWorkspaces } from "@/lib/mock-data";
 import { Check, ChevronsUpDown, Plus, Sparkles, Trash2, Trophy } from "lucide-react";
 import { seedDemoNewsletterAsset } from "@/lib/demo-asset";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 import { OracleOnboardingFlow } from "../onboarding/OracleOnboardingFlow";
 import { estimateXp, progressToNextRank } from "@/lib/gamification";
@@ -21,6 +22,7 @@ const accentRing: Record<string, string> = {
 };
 
 export function WorkspaceSwitcher() {
+  const router = useRouter();
   const {
     currentWorkspaceId,
     setWorkspace,
@@ -204,6 +206,9 @@ export function WorkspaceSwitcher() {
                     onClick={() => {
                       setWorkspace(w.id);
                       setOpen(false);
+                      // Workspace seçilince doğrudan workspace shell'e git
+                      // (Base44 paradigması — 4 tab açılır)
+                      router.push(`/workspace/${w.id}/operations`);
                     }}
                     className={cn(
                       "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
