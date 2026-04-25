@@ -55,8 +55,11 @@ export function OracleStream() {
   const createdOperatorTasks = useWorkspaceStore((s) => s.createdOperatorTasks);
   const setTaskStatus = useWorkspaceStore((s) => s.setTaskStatus);
   const completeRitual = useWorkspaceStore((s) => s.completeRitual);
+  const dismissedArray = useWorkspaceStore((s) => s.dismissedStreamItems);
+  const dismissStreamItem = useWorkspaceStore((s) => s.dismissStreamItem);
 
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  // Persisted Set'e çevir
+  const dismissed = useMemo(() => new Set(dismissedArray), [dismissedArray]);
   const [collapsed, setCollapsed] = useState(false);
 
   const ws = workspaces.find((w) => w.id === wsId);
@@ -226,7 +229,7 @@ export function OracleStream() {
             <StreamCard
               key={item.id}
               item={item}
-              onDismiss={() => setDismissed((s) => new Set(s).add(item.id))}
+              onDismiss={() => dismissStreamItem(item.id)}
             />
           ))}
         </div>

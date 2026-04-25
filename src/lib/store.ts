@@ -53,6 +53,9 @@ interface WorkspaceState {
   /** Workspace başına bağlı connector ID'leri — TrainStation attach state.
    *  Map: workspaceId → connectorId[]. Aynı workspace bir connector'a 1 kez bağlanır. */
   attachedConnectors: Record<string, string[]>;
+  /** OracleStream'de "Sonra" butonuna basılan kart ID'leri. localStorage'da
+   *  persist edilir — refresh atınca dismissed kartlar geri gelmez. */
+  dismissedStreamItems: string[];
   acceptedSuggestionSources: string[]; // Oracle "learning" signal
   // Dopamine — event-driven XP stream
   dopamineEvents: DopamineEvent[];
@@ -82,6 +85,10 @@ interface WorkspaceState {
   attachConnector: (connectorId: string, workspaceId?: string) => void;
   /** Connector'ı çıkar (silent — XP geri alınmaz, sadece state update) */
   detachConnector: (connectorId: string, workspaceId?: string) => void;
+  /** OracleStream kartını "sonra" işaretle — localStorage'da persist eder */
+  dismissStreamItem: (id: string) => void;
+  /** Tüm dismissed stream item'ları geri getir (Oracle: "yeniden bak") */
+  resetDismissedStream: () => void;
   createWorkspace: (item: CreatedItem<Workspace>, source?: string) => void;
   /**
    * Seed/demo workspaces'i (mock-data'dan gelen) siler — sadece Ferhan'ın
@@ -137,6 +144,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(persist((set, get) => 
   createdRituals: [],
   createdBudgets: [],
   attachedConnectors: {},
+  dismissedStreamItems: [],
   acceptedSuggestionSources: [],
   dopamineEvents: [],
   setWorkspace: (id) => set({ currentWorkspaceId: id }),
@@ -463,6 +471,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(persist((set, get) => 
     }));
     // No XP penalty — silent state change
   },
+  dismissStreamItem: (id) =>
+    set((s) =>
+      s.dismissedStreamItems.includes(id)
+        ? s
+        : { dismissedStreamItems: [...s.dismissedStreamItems, id] }
+    ),
+  resetDismissedStream: () => set({ dismissedStreamItems: [] }),
   createWorkspace: (item, source) => {
     set((s) => ({
       workspaces: [...s.workspaces, item.entity],
@@ -608,6 +623,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(persist((set, get) => 
     createdRituals: s.createdRituals,
     createdBudgets: s.createdBudgets,
     attachedConnectors: s.attachedConnectors,
+    dismissedStreamItems: s.dismissedStreamItems,
     acceptedSuggestionSources: s.acceptedSuggestionSources,
     dopamineEvents: s.dopamineEvents,
   }),
